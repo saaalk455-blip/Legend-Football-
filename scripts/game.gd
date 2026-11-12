@@ -38,13 +38,16 @@ var tackle_cd := 0.0
 var goal_timer := 0.0
 var score := [0, 0]
 var score_label: Label
+var player_card: Label
 var goal_label: Label
 
 
 func _ready() -> void:
 	Global.apply_quality()
 	team_a = Global.team_index
-	team_b = (team_a + 1) % Global.TEAMS.size()
+	team_b = Global.opp_index
+	if team_b == team_a:
+		team_b = (team_a + 1) % Global.TEAMS.size()
 	_build_environment()
 	_build_pitch()
 	_build_goals()
@@ -74,6 +77,8 @@ func _process(delta: float) -> void:
 	cam.look_at(Vector3(f.x * 0.4, 0.0, f.z * 0.75), Vector3.UP)
 	if indicator != null and controlled != null:
 		indicator.position = controlled.position + Vector3(0, 2.7 + sin(_t * 6.0) * 0.12, 0)
+	if player_card != null and controlled != null:
+		player_card.text = "%s  %s" % [controlled.role, controlled.player_name]
 	if controls != null:
 		var defending := holder != null and holder.team_id == 1
 		controls.set_label("PASS", "TACKLE" if defending else "PASS")
@@ -636,30 +641,43 @@ func _build_goals() -> void:
 func _build_teams() -> void:
 	var ta: Dictionary = Global.TEAMS[team_a]
 	var tb: Dictionary = Global.TEAMS[team_b]
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 11
 	for team_id in 2:
 		var td: Dictionary = ta if team_id == 0 else tb
+		var roster: Array = Global.get_roster(team_a if team_id == 0 else team_b)
+		var kit1: Color = td["c1"]
+		var kit2: Color = td["c2"]
+		# Avoid both teams wearing the same colour: opponent swaps to its second kit.
+		if team_id == 1 and _colour_close(kit1, ta["c1"]):
+			kit1 = td["c2"]
+			kit2 = td["c1"]
+			if _colour_close(kit1, ta["c1"]):
+				kit1 = Color("222222")
 		# Team 0 (player) defends +Z and attacks toward -Z; team 1 is mirrored.
 		var dir := 1.0 if team_id == 0 else -1.0
 		for i in FORMATION.size():
 			var f: Array = FORMATION[i]
 			var x: float = f[1] * (HALF_W - 6.0) * dir
 			var z: float = dir * (HALF_L - f[2] * PITCH_L)
-			var shirt: Color = td["c1"]
-			var shorts: Color = td["c2"]
+			var shirt := kit1
+			var shorts := kit2
 			if f[0] == "GK":
 				shirt = Color("39ff14") if team_id == 0 else Color("ff9f1c")
 				shorts = Color("222222")
 			var p := Player.new()
 			add_child(p)
 			p.setup(team_id, f[0], Vector3(x, 0, z), shirt, shorts, i + 1)
-			p.speed_stat = rng.randi_range(60, 90)
-			p.shoot_stat = rng.randi_range(55, 90)
-			p.pass_stat = rng.randi_range(55, 90)
+			var r: Dictionary = roster[i]
+			p.player_name = r["name"]
+			p.speed_stat = r["speed"]
+			p.shoot_stat = r["shoot"]
+			p.pass_stat = r["pass"]
 			# Face the opponent goal
 			p.rotation.y = 0.0 if team_id == 1 else PI
 			players.append(p)
+
+
+func _colour_close(a: Color, b: Color) -> bool:
+	return absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) < 0.6
 
 
 func _build_ball() -> void:
@@ -695,10 +713,17 @@ func _build_ui() -> void:
 	b.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
 	layer.add_child(b)
 	var l := Label.new()
-	l.text = "%s vs %s   (Phase 5)" % [Global.TEAMS[team_a]["name"], Global.TEAMS[team_b]["name"]]
+	l.text = "%s vs %s" % [Global.TEAMS[team_a]["name"], Global.TEAMS[team_b]["name"]]
 	l.position = Vector2(220, 36)
 	l.add_theme_font_size_override("font_size", 28)
 	layer.add_child(l)
+
+	player_card = Label.new()
+	player_card.position = Vector2(20, 96)
+	player_card.add_theme_font_size_override("font_size", 30)
+	player_card.add_theme_color_override("font_outline_color", Color.BLACK)
+	player_card.add_theme_constant_override("outline_size", 8)
+	layer.add_child(player_card)
 
 	score_label = Label.new()
 	score_label.set_anchors_preset(Control.PRESET_CENTER_TOP)

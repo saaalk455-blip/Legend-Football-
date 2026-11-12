@@ -7,7 +7,8 @@ Original retro-style 3D football game for Android, built with Godot 4.3. All tea
 - PHASE 2: pitch, goals, TV camera, 22 players, ball (built OK).
 - PHASE 3: virtual stick, action buttons, player movement, switch player (built OK).
 - PHASE 4: ball pickup, pass, long pass, shoot, bounce, goals + score (built OK).
-- PHASE 5: AI for both teams, goalkeepers, Easy/Normal/Hard (needs build check).
+- PHASE 5: AI for both teams, goalkeepers, Easy/Normal/Hard (built OK).
+- PHASE 7 (early): 24 national teams (up to 2002), generated fictional rosters, team + opponent selection, player card (needs build check).
 
 ## Get the APK
 GitHub → Actions → "Build Android APK" → latest run → Artifacts → `LegendFootball-debug-apk`.

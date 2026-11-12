@@ -3,6 +3,7 @@ extends Control
 
 var _bg: ColorRect
 var _panel_holder: Control
+var _pick_opp := false
 
 
 func _ready() -> void:
@@ -102,26 +103,72 @@ func _on_play() -> void:
 
 
 func _show_teams() -> void:
-	var box := _center_box(640)
-	box.add_child(_title(Global.t("TEAMS"), 48))
+	_clear()
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 60)
+	margin.add_theme_constant_override("margin_right", 60)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	_panel_holder.add_child(margin)
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 12)
+	margin.add_child(outer)
+	outer.add_child(_title(Global.t("TEAMS"), 44))
+
+	# Toggle between choosing your team and the opponent
+	var mode := _button("%s  >  %s" % [Global.t("OPPONENT") if _pick_opp else Global.t("YOUR TEAM"), Global.TEAMS[Global.opp_index if _pick_opp else Global.team_index]["name"]], _toggle_pick)
+	mode.custom_minimum_size = Vector2(0, 64)
+	mode.add_theme_font_size_override("font_size", 28)
+	outer.add_child(mode)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 8)
+	scroll.add_child(list)
+	var current: int = Global.opp_index if _pick_opp else Global.team_index
 	for i in Global.TEAMS.size():
 		var tm: Dictionary = Global.TEAMS[i]
-		var b := _button(tm["name"] + ("  ✔" if i == Global.team_index else ""), _pick_team.bind(i))
+		var txt := "%s%s     PWR %d   SPD %d   ATK %d   DEF %d" % ["> " if i == current else "", tm["name"], tm["pwr"], tm["spd"], tm["atk"], tm["def"]]
+		var b := _button(txt, _pick_team.bind(i))
 		b.custom_minimum_size = Vector2(0, 64)
-		b.add_theme_font_size_override("font_size", 28)
+		b.add_theme_font_size_override("font_size", 24)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = tm["c1"]
 		sb.border_color = tm["c2"]
 		sb.set_border_width_all(5)
 		sb.set_corner_radius_all(10)
 		b.add_theme_stylebox_override("normal", sb)
-		b.add_theme_color_override("font_color", tm["c2"])
-		box.add_child(b)
-	box.add_child(_button(Global.t("BACK"), _show_main))
+		var light: bool = (tm["c1"] as Color).get_luminance() > 0.55
+		var fc := Color("111111") if light else Color("ffffff")
+		b.add_theme_color_override("font_color", fc)
+		b.add_theme_color_override("font_hover_color", fc)
+		b.add_theme_color_override("font_pressed_color", fc)
+		list.add_child(b)
+	var back := _button(Global.t("BACK"), _show_main)
+	back.custom_minimum_size = Vector2(0, 70)
+	outer.add_child(back)
+
+
+func _toggle_pick() -> void:
+	_pick_opp = not _pick_opp
+	_show_teams()
 
 
 func _pick_team(i: int) -> void:
-	Global.team_index = i
+	if _pick_opp:
+		Global.opp_index = i
+		if Global.opp_index == Global.team_index:
+			Global.team_index = (i + 1) % Global.TEAMS.size()
+	else:
+		Global.team_index = i
+		if Global.opp_index == i:
+			Global.opp_index = (i + 1) % Global.TEAMS.size()
 	Global.save_data()
 	_show_teams()
 
