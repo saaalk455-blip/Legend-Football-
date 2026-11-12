@@ -3,7 +3,8 @@
 Original retro-style 3D football game for Android, built with Godot 4.3. All teams and names are fictional; no third-party assets.
 
 ## Status
-- PHASE 1: project, main menu (Play / Teams / Settings / About), settings + save, placeholder match scene. Not yet verified by a build.
+- PHASE 1: project, main menu, settings + save, CI APK build (built OK).
+- PHASE 2: pitch, goals, TV camera, 22 players, ball (needs build check).
 
 ## Get the APK
 GitHub → Actions → "Build Android APK" → latest run → Artifacts → `LegendFootball-debug-apk`.
