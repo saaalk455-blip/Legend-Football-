@@ -27,6 +27,19 @@ var controlled: Player
 var indicator: MeshInstance3D
 var _t := 0.0
 
+const GRAVITY := 22.0
+const BALL_R := 0.35
+var ball_vel := Vector3.ZERO
+var holder: Player = null          # player currently dribbling the ball
+var hold_time := 0.0
+var blocked_player: Player = null  # can't re-collect the ball for a moment
+var blocked_timer := 0.0
+var tackle_cd := 0.0
+var goal_timer := 0.0
+var score := [0, 0]
+var score_label: Label
+var goal_label: Label
+
 
 func _ready() -> void:
 	Global.apply_quality()
@@ -61,10 +74,20 @@ func _process(delta: float) -> void:
 	cam.look_at(Vector3(f.x * 0.4, 0.0, f.z * 0.75), Vector3.UP)
 	if indicator != null and controlled != null:
 		indicator.position = controlled.position + Vector3(0, 2.7 + sin(_t * 6.0) * 0.12, 0)
+	if controls != null:
+		var defending := holder != null and holder.team_id == 1
+		controls.set_label("PASS", "TACKLE" if defending else "PASS")
 
 
 func _physics_process(delta: float) -> void:
-	if controlled == null or controls == null:
+	if controls == null or ball == null:
+		return
+	_update_ball(delta)
+	_move_controlled(delta)
+
+
+func _move_controlled(delta: float) -> void:
+	if controlled == null or goal_timer > 0.0:
 		return
 	var v := controls.move
 	if v == Vector2.ZERO:
@@ -102,9 +125,215 @@ func _switch_player() -> void:
 
 
 func _on_button_down(action: String) -> void:
-	if action == "SWITCH":
-		_switch_player()
-	# PASS / SHOOT / LONG are wired to the ball in Phase 4.
+	if goal_timer > 0.0 or controlled == null:
+		return
+	var has_ball := holder == controlled
+	match action:
+		"SWITCH":
+			if not has_ball:
+				_switch_player()
+		"PASS":
+			if has_ball:
+				_kick_pass(false)
+			else:
+				_tackle()
+		"LONG":
+			if has_ball:
+				_kick_pass(true)
+		"SHOOT":
+			if has_ball:
+				_kick_shoot()
+
+
+# ---------------------------------------------------------------- ball
+
+func _forward(p: Player) -> Vector3:
+	return Vector3(sin(p.rotation.y), 0.0, cos(p.rotation.y))
+
+
+func _update_ball(delta: float) -> void:
+	blocked_timer = maxf(blocked_timer - delta, 0.0)
+	tackle_cd = maxf(tackle_cd - delta, 0.0)
+	if goal_timer > 0.0:
+		goal_timer -= delta
+		_ball_physics(delta)
+		# Ball rolls into the net and stops against the back.
+		if absf(ball.position.z) > HALF_L + 1.9:
+			ball.position.z = signf(ball.position.z) * (HALF_L + 1.9)
+			ball_vel = ball_vel * 0.2
+		if goal_timer <= 0.0:
+			_kickoff()
+		return
+	if holder != null:
+		ball.position = holder.position + _forward(holder) * 0.9 + Vector3(0, BALL_R, 0)
+		ball_vel = Vector3.ZERO
+		hold_time += delta
+		if holder.team_id == 1 and hold_time > 1.0:
+			_opponent_clear()
+		return
+	_ball_physics(delta)
+	_try_pickup()
+	_check_goal()
+
+
+func _ball_physics(delta: float) -> void:
+	ball_vel.y -= GRAVITY * delta
+	ball.position += ball_vel * delta
+	if ball.position.y <= BALL_R:
+		ball.position.y = BALL_R
+		if ball_vel.y < 0.0:
+			ball_vel.y = -ball_vel.y * 0.55
+			if ball_vel.y < 1.5:
+				ball_vel.y = 0.0
+		var damp := clampf(1.0 - 1.4 * delta, 0.0, 1.0)
+		ball_vel.x *= damp
+		ball_vel.z *= damp
+		if Vector2(ball_vel.x, ball_vel.z).length() < 0.2:
+			ball_vel.x = 0.0
+			ball_vel.z = 0.0
+
+
+func _try_pickup() -> void:
+	if ball.position.y > 1.3:
+		return
+	var speed := Vector2(ball_vel.x, ball_vel.z).length()
+	var best: Player = null
+	var best_d := INF
+	for p in players:
+		if p == blocked_player and blocked_timer > 0.0:
+			continue
+		var is_gk := p.role == "GK"
+		if speed > (40.0 if is_gk else 16.0):
+			continue
+		var reach := 2.0 if is_gk else 1.25
+		var d := Vector2(p.position.x - ball.position.x, p.position.z - ball.position.z).length()
+		if d < reach and d < best_d:
+			best_d = d
+			best = p
+	if best != null:
+		holder = best
+		hold_time = 0.0
+		if best.team_id == 0:
+			controlled = best
+
+
+func _check_goal() -> void:
+	var p := ball.position
+	if absf(p.z) >= HALF_L:
+		if absf(p.x) < GOAL_W / 2.0 and p.y < GOAL_H:
+			var scorer := 0 if p.z < 0.0 else 1
+			score[scorer] += 1
+			goal_timer = 2.5
+			_update_score_ui(true)
+			return
+		# Missed the goal mouth / hit post or bar: rebound.
+		p.z = signf(p.z) * (HALF_L - 0.05)
+		ball_vel.z = -ball_vel.z * 0.5
+		ball.position = p
+	if absf(p.x) > HALF_W + 1.5:
+		p.x = signf(p.x) * (HALF_W + 1.5)
+		ball_vel.x = -ball_vel.x * 0.5
+		ball.position = p
+
+
+func _kickoff() -> void:
+	for p in players:
+		p.position = p.home_pos
+	holder = null
+	ball.position = Vector3(0, BALL_R, 0)
+	ball_vel = Vector3.ZERO
+	controlled = _nearest_player(0)
+	_update_score_ui(false)
+
+
+func _opponent_clear() -> void:
+	# Placeholder until the Phase 5 AI: opponents just boot the ball upfield.
+	var p := holder
+	holder = null
+	var dir := Vector3(randf_range(-0.5, 0.5), 0.0, 1.0).normalized()
+	ball_vel = dir * 16.0 + Vector3(0, 4.0, 0)
+	blocked_player = p
+	blocked_timer = 0.6
+
+
+func _release_ball(kicker: Player) -> void:
+	holder = null
+	blocked_player = kicker
+	blocked_timer = 0.4
+
+
+func _kick_pass(lofted: bool) -> void:
+	var me := controlled
+	var dir := _forward(me)
+	if controls.move != Vector2.ZERO:
+		dir = Vector3(controls.move.x, 0.0, controls.move.y).normalized()
+	var best: Player = null
+	var best_score := -INF
+	for p in players:
+		if p.team_id != 0 or p == me:
+			continue
+		var to := p.position - me.position
+		to.y = 0.0
+		var dist := to.length()
+		if dist < 4.0 or dist > 45.0:
+			continue
+		var s := to.normalized().dot(dir) * 3.0 - dist / 30.0
+		if lofted:
+			s += minf(dist, 30.0) / 20.0
+		if p.role == "GK":
+			s -= 1.0
+		if s > best_score:
+			best_score = s
+			best = p
+	var flat_dir := dir
+	var dist_t := 15.0
+	if best != null:
+		var to_t := best.position - me.position
+		to_t.y = 0.0
+		if to_t.normalized().dot(dir) > 0.3:
+			flat_dir = to_t.normalized()
+			dist_t = to_t.length()
+	_release_ball(me)
+	if lofted:
+		ball_vel = flat_dir * clampf(dist_t / 0.8, 10.0, 32.0) + Vector3(0, 9.0, 0)
+	else:
+		var spd := clampf(dist_t * 1.5 + 7.0, 10.0, 26.0) * (0.85 + float(me.pass_stat) / 500.0)
+		ball_vel = flat_dir * spd
+
+
+func _kick_shoot() -> void:
+	var me := controlled
+	var aim_x := randf_range(-2.8, 2.8)
+	if absf(controls.move.x) > 0.2:
+		aim_x = controls.move.x * 3.0
+	var to_goal := Vector3(aim_x, 0.0, -HALF_L) - me.position
+	to_goal.y = 0.0
+	var dist := to_goal.length()
+	var dir := to_goal.normalized()
+	dir.x += randf_range(-0.04, 0.04) * dist / 10.0
+	dir = dir.normalized()
+	_release_ball(me)
+	ball_vel = dir * (24.0 + float(me.shoot_stat) * 0.12) + Vector3(0, 1.5 + randf() * 2.0, 0)
+
+
+func _tackle() -> void:
+	if holder == null or holder.team_id != 1 or tackle_cd > 0.0:
+		return
+	if holder.position.distance_to(controlled.position) > 2.4:
+		return
+	tackle_cd = 0.6
+	if randf() < 0.7:
+		blocked_player = holder
+		blocked_timer = 0.8
+		holder = controlled
+		hold_time = 0.0
+
+
+func _update_score_ui(goal: bool) -> void:
+	if score_label != null:
+		score_label.text = "%s  %d - %d  %s" % [Global.TEAMS[team_a]["name"], score[0], score[1], Global.TEAMS[team_b]["name"]]
+	if goal_label != null:
+		goal_label.visible = goal
 
 
 func _build_controls() -> void:
@@ -287,7 +516,29 @@ func _build_ui() -> void:
 	b.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
 	layer.add_child(b)
 	var l := Label.new()
-	l.text = "%s vs %s   (Phase 3)" % [Global.TEAMS[team_a]["name"], Global.TEAMS[team_b]["name"]]
+	l.text = "%s vs %s   (Phase 4)" % [Global.TEAMS[team_a]["name"], Global.TEAMS[team_b]["name"]]
 	l.position = Vector2(220, 36)
 	l.add_theme_font_size_override("font_size", 28)
 	layer.add_child(l)
+
+	score_label = Label.new()
+	score_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	score_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	score_label.position.y = 96.0
+	score_label.add_theme_font_size_override("font_size", 40)
+	score_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	score_label.add_theme_constant_override("outline_size", 8)
+	layer.add_child(score_label)
+
+	goal_label = Label.new()
+	goal_label.text = "GOAL!"
+	goal_label.set_anchors_preset(Control.PRESET_CENTER)
+	goal_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	goal_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+	goal_label.add_theme_font_size_override("font_size", 120)
+	goal_label.add_theme_color_override("font_color", Color("ffd60a"))
+	goal_label.add_theme_color_override("font_outline_color", Color("b00020"))
+	goal_label.add_theme_constant_override("outline_size", 16)
+	goal_label.visible = false
+	layer.add_child(goal_label)
+	_update_score_ui(false)

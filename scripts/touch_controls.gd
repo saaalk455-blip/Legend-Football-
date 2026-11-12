@@ -21,6 +21,14 @@ var _btn_nodes := {}                 # action -> Panel
 var _btn_pos := {}                   # action -> Vector2 (centre)
 var _btn_rad := {}                   # action -> float
 var _touch_action := {}              # touch index -> action
+var _labels := {}                    # action -> Label
+
+
+func set_label(action: String, text: String) -> void:
+	if _labels.has(action):
+		var l: Label = _labels[action]
+		if l.text != text:
+			l.text = text
 
 const ACTIONS := {
 	"SHOOT": {"r": 80.0, "color": Color("e63946")},
@@ -49,6 +57,7 @@ func _ready() -> void:
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		n.add_child(l)
+		_labels[a] = l
 		_btn_nodes[a] = n
 		_btn_rad[a] = info["r"]
 		held[a] = false
