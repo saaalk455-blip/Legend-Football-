@@ -83,6 +83,7 @@ func _physics_process(delta: float) -> void:
 	if controls == null or ball == null:
 		return
 	_update_ball(delta)
+	_update_ai(delta)
 	_move_controlled(delta)
 
 
@@ -168,8 +169,8 @@ func _update_ball(delta: float) -> void:
 		ball.position = holder.position + _forward(holder) * 0.9 + Vector3(0, BALL_R, 0)
 		ball_vel = Vector3.ZERO
 		hold_time += delta
-		if holder.team_id == 1 and hold_time > 1.0:
-			_opponent_clear()
+		if holder.team_id == 1 and hold_time > 6.0:
+			_opponent_clear()   # safety net if the AI ever gets stuck
 		return
 	_ball_physics(delta)
 	_try_pickup()
@@ -205,7 +206,10 @@ func _try_pickup() -> void:
 		var is_gk := p.role == "GK"
 		if speed > (40.0 if is_gk else 16.0):
 			continue
-		var reach := 2.0 if is_gk else 1.25
+		var opp_gk_reach: float = [1.3, 1.7, 2.1][Global.difficulty]
+		var reach := 1.25
+		if is_gk:
+			reach = opp_gk_reach if p.team_id == 1 else 1.9
 		var d := Vector2(p.position.x - ball.position.x, p.position.z - ball.position.z).length()
 		if d < reach and d < best_d:
 			best_d = d
@@ -334,6 +338,181 @@ func _update_score_ui(goal: bool) -> void:
 		score_label.text = "%s  %d - %d  %s" % [Global.TEAMS[team_a]["name"], score[0], score[1], Global.TEAMS[team_b]["name"]]
 	if goal_label != null:
 		goal_label.visible = goal
+
+
+# ---------------------------------------------------------------- AI
+
+func _update_ai(delta: float) -> void:
+	if goal_timer > 0.0:
+		return
+	var diff := Global.difficulty
+	var spd_mult: float = [0.75, 0.9, 1.05][diff]
+	var react: float = [0.9, 0.55, 0.3][diff]
+	for p in players:
+		p.ai_cd = maxf(p.ai_cd - delta, 0.0)
+	for team_id in 2:
+		var chaser := _chaser(team_id)
+		var has_ball := holder != null and holder.team_id == team_id
+		for p in players:
+			if p.team_id != team_id or p == controlled:
+				continue
+			var mult := spd_mult if team_id == 1 else 0.95
+			if p.role == "GK":
+				mult = 1.3
+			if p == holder:
+				_ai_with_ball(p, react, mult, delta)
+				continue
+			_move_toward(p, _ai_target(p, chaser, has_ball), mult, delta)
+			if p == chaser and holder != null and holder.team_id != team_id:
+				_ai_try_tackle(p, diff)
+
+
+func _chaser(team_id: int) -> Player:
+	if holder != null and holder.team_id == team_id:
+		return null
+	var best: Player = null
+	var best_d := INF
+	for p in players:
+		if p.team_id != team_id or p.role == "GK" or p == controlled:
+			continue
+		var d := p.position.distance_squared_to(ball.position)
+		if d < best_d:
+			best_d = d
+			best = p
+	if team_id == 0 and controlled != null and best != null:
+		if controlled.position.distance_squared_to(ball.position) < best_d:
+			return null   # the human is closer, let them go for it
+	return best
+
+
+func _ai_target(p: Player, chaser: Player, has_ball: bool) -> Vector3:
+	if p.role == "GK":
+		var gz := HALF_L if p.team_id == 0 else -HALF_L
+		var out := clampf((22.0 - absf(ball.position.z - gz)) / 22.0, 0.0, 1.0) * 4.0
+		return Vector3(clampf(ball.position.x * 0.45, -3.4, 3.4), 0.0, gz - signf(gz) * (1.5 + out))
+	if p == chaser:
+		if holder != null:
+			return holder.position
+		return ball.position + Vector3(ball_vel.x, 0.0, ball_vel.z) * 0.25
+	var atk := -1.0 if p.team_id == 0 else 1.0
+	var shift := clampf(ball.position.z, -HALF_L, HALF_L) * 0.45
+	var push := 0.0
+	if has_ball:
+		if p.role == "FWD":
+			push = atk * 18.0
+		elif p.role == "MID":
+			push = atk * 10.0
+		else:
+			push = atk * 4.0
+	var t := Vector3(p.home_pos.x + ball.position.x * 0.2, 0.0, p.home_pos.z + shift + push)
+	t.x = clampf(t.x, -HALF_W + 3.0, HALF_W - 3.0)
+	t.z = clampf(t.z, -HALF_L + 8.0, HALF_L - 8.0)
+	if p.role == "DEF":
+		if p.team_id == 0:
+			t.z = maxf(t.z, -4.0)
+		else:
+			t.z = minf(t.z, 4.0)
+	return t
+
+
+func _move_toward(p: Player, target: Vector3, mult: float, delta: float) -> void:
+	var to := target - p.position
+	to.y = 0.0
+	var dist := to.length()
+	if dist < 0.4:
+		return
+	var spd := (4.5 + 0.03 * float(p.speed_stat)) * mult
+	if dist > 12.0:
+		spd *= 1.25
+	var dir := to / dist
+	p.position += dir * minf(spd * delta, dist)
+	p.rotation.y = lerp_angle(p.rotation.y, atan2(dir.x, dir.z), clampf(delta * 10.0, 0.0, 1.0))
+
+
+func _ai_try_tackle(p: Player, diff: int) -> void:
+	if holder == null or holder.team_id == p.team_id or p.ai_cd > 0.0:
+		return
+	if p.position.distance_to(holder.position) > 1.9 or hold_time < 0.5:
+		return
+	p.ai_cd = 1.0
+	var chance: float = [0.2, 0.35, 0.5][diff]
+	if p.team_id == 0:
+		chance = 0.6   # teammates help the human
+	if randf() < chance:
+		blocked_player = holder
+		blocked_timer = 0.8
+		holder = p
+		hold_time = 0.0
+		if p.team_id == 0:
+			controlled = p
+
+
+func _nearest_enemy_dist(pos: Vector3, team_id: int) -> float:
+	var best := INF
+	for q in players:
+		if q.team_id == team_id:
+			continue
+		best = minf(best, Vector2(q.position.x - pos.x, q.position.z - pos.z).length())
+	return best
+
+
+func _ai_with_ball(p: Player, react: float, mult: float, delta: float) -> void:
+	var atk := 1.0 if p.team_id == 1 else -1.0
+	var gz := atk * HALF_L
+	if p.role == "GK":
+		if hold_time > react + 0.6:
+			_ai_pass(p, true)
+		return
+	var dist_goal := Vector2(p.position.x, p.position.z - gz).length()
+	if hold_time > react:
+		if dist_goal < 25.0:
+			_ai_shoot(p)
+			return
+		if _nearest_enemy_dist(p.position, p.team_id) < 4.0 or hold_time > 3.5:
+			if _ai_pass(p, false):
+				return
+	_move_toward(p, Vector3(p.position.x * 0.8, 0.0, gz), mult * 0.85, delta)
+
+
+func _ai_pass(p: Player, lofted: bool) -> bool:
+	var atk := 1.0 if p.team_id == 1 else -1.0
+	var best: Player = null
+	var best_s := -INF
+	for t in players:
+		if t.team_id != p.team_id or t == p or t.role == "GK":
+			continue
+		var to := t.position - p.position
+		to.y = 0.0
+		var d := to.length()
+		if d < 5.0 or d > 40.0:
+			continue
+		var s := atk * to.z * 0.06 - d * 0.02 + _nearest_enemy_dist(t.position, p.team_id) * 0.1
+		if s > best_s:
+			best_s = s
+			best = t
+	if best == null:
+		return false
+	var err: float = [0.12, 0.07, 0.04][Global.difficulty]
+	var flat := best.position - p.position
+	flat.y = 0.0
+	var d2 := flat.length()
+	flat = flat.normalized().rotated(Vector3.UP, randf_range(-err, err))
+	_release_ball(p)
+	if lofted or d2 > 28.0:
+		ball_vel = flat * clampf(d2 / 0.8, 10.0, 32.0) + Vector3(0, 9.0, 0)
+	else:
+		ball_vel = flat * clampf(d2 * 1.5 + 7.0, 10.0, 26.0) * (0.85 + float(p.pass_stat) / 500.0)
+	return true
+
+
+func _ai_shoot(p: Player) -> void:
+	var gz := HALF_L if p.team_id == 1 else -HALF_L
+	var err: float = [0.1, 0.06, 0.035][Global.difficulty]
+	var to := Vector3(randf_range(-3.0, 3.0), 0.0, gz) - p.position
+	to.y = 0.0
+	var dir := to.normalized().rotated(Vector3.UP, randf_range(-err, err) * (1.0 + to.length() / 15.0))
+	_release_ball(p)
+	ball_vel = dir * (22.0 + float(p.shoot_stat) * 0.12) + Vector3(0, 1.5 + randf() * 1.5, 0)
 
 
 func _build_controls() -> void:
@@ -516,7 +695,7 @@ func _build_ui() -> void:
 	b.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
 	layer.add_child(b)
 	var l := Label.new()
-	l.text = "%s vs %s   (Phase 4)" % [Global.TEAMS[team_a]["name"], Global.TEAMS[team_b]["name"]]
+	l.text = "%s vs %s   (Phase 5)" % [Global.TEAMS[team_a]["name"], Global.TEAMS[team_b]["name"]]
 	l.position = Vector2(220, 36)
 	l.add_theme_font_size_override("font_size", 28)
 	layer.add_child(l)
