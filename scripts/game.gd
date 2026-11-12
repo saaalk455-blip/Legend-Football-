@@ -22,6 +22,10 @@ var ball: MeshInstance3D
 var cam: Camera3D
 var team_a := 0
 var team_b := 1
+var controls: TouchControls
+var controlled: Player
+var indicator: MeshInstance3D
+var _t := 0.0
 
 
 func _ready() -> void:
@@ -35,16 +39,91 @@ func _ready() -> void:
 	_build_ball()
 	_build_camera()
 	_build_ui()
+	_build_controls()
+
+
+func _focus_point() -> Vector3:
+	# Camera focus: mostly the controlled player, a bit of the ball.
+	if controlled == null:
+		return ball.position
+	return controlled.position.lerp(ball.position, 0.3)
 
 
 func _process(delta: float) -> void:
 	if cam == null or ball == null:
 		return
-	# TV-style camera: follows the ball smoothly along the pitch.
-	var target := Vector3(ball.position.x * 0.4, 34.0, ball.position.z * 0.75 + 30.0)
+	_t += delta
+	var f := _focus_point()
+	# TV-style camera: follows smoothly along the pitch.
+	var target := Vector3(f.x * 0.4, 34.0, f.z * 0.75 + 30.0)
 	target.z = clampf(target.z, -HALF_L + 18.0, HALF_L + 30.0)
 	cam.position = cam.position.lerp(target, clampf(delta * 3.0, 0.0, 1.0))
-	cam.look_at(Vector3(ball.position.x * 0.4, 0.0, ball.position.z * 0.75), Vector3.UP)
+	cam.look_at(Vector3(f.x * 0.4, 0.0, f.z * 0.75), Vector3.UP)
+	if indicator != null and controlled != null:
+		indicator.position = controlled.position + Vector3(0, 2.7 + sin(_t * 6.0) * 0.12, 0)
+
+
+func _physics_process(delta: float) -> void:
+	if controlled == null or controls == null:
+		return
+	var v := controls.move
+	if v == Vector2.ZERO:
+		return
+	# Camera looks toward -Z, so stick up = -Z, stick right = +X.
+	var dir := Vector3(v.x, 0.0, v.y)
+	var spd := 4.5 + 0.03 * float(controlled.speed_stat)
+	if controls.held.get("RUN", false):
+		spd *= 1.5
+	var p := controlled.position + dir * spd * delta
+	p.x = clampf(p.x, -HALF_W - 2.0, HALF_W + 2.0)
+	p.z = clampf(p.z, -HALF_L - 3.0, HALF_L + 3.0)
+	controlled.position = p
+	var target_yaw := atan2(dir.x, dir.z)
+	controlled.rotation.y = lerp_angle(controlled.rotation.y, target_yaw, clampf(delta * 14.0, 0.0, 1.0))
+
+
+func _nearest_player(team_id: int, exclude: Player = null) -> Player:
+	var best: Player = null
+	var best_d := INF
+	for p in players:
+		if p.team_id != team_id or p.role == "GK" or p == exclude:
+			continue
+		var d := p.position.distance_squared_to(ball.position)
+		if d < best_d:
+			best_d = d
+			best = p
+	return best
+
+
+func _switch_player() -> void:
+	var n := _nearest_player(0, controlled)
+	if n != null:
+		controlled = n
+
+
+func _on_button_down(action: String) -> void:
+	if action == "SWITCH":
+		_switch_player()
+	# PASS / SHOOT / LONG are wired to the ball in Phase 4.
+
+
+func _build_controls() -> void:
+	controls = TouchControls.new()
+	add_child(controls)
+	controls.button_down.connect(_on_button_down)
+	controlled = _nearest_player(0)
+	indicator = MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.4
+	cm.bottom_radius = 0.0
+	cm.height = 0.7
+	cm.radial_segments = 4
+	indicator.mesh = cm
+	var im := StandardMaterial3D.new()
+	im.albedo_color = Color("ffd60a")
+	im.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	indicator.material_override = im
+	add_child(indicator)
 
 
 func _mat(color: Color) -> StandardMaterial3D:
@@ -208,7 +287,7 @@ func _build_ui() -> void:
 	b.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
 	layer.add_child(b)
 	var l := Label.new()
-	l.text = "%s vs %s   (Phase 2)" % [Global.TEAMS[team_a]["name"], Global.TEAMS[team_b]["name"]]
+	l.text = "%s vs %s   (Phase 3)" % [Global.TEAMS[team_a]["name"], Global.TEAMS[team_b]["name"]]
 	l.position = Vector2(220, 36)
 	l.add_theme_font_size_override("font_size", 28)
 	layer.add_child(l)
