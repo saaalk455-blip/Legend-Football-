@@ -54,6 +54,8 @@ var number_label: Label3D
 var autoplay := false      # CI smoke test: AI plays both sides
 var _auto_t := 0.0
 var _loose_t := 0.0
+var _adv := [-999.0, -999.0]
+var _carry_frames := [0, 0]
 var _t := 0.0
 var _auto_switch_t := 0.0
 var _mat_cache := {}
@@ -392,7 +394,11 @@ func _process(delta: float) -> void:
 		_auto_t += delta
 		if _auto_t >= 30.0:
 			_auto_t = 0.0
-			print("SMOKE_STATUS t=%.0f mode=%d clock=%s score=%d-%d holder=%s" % [_t, mode, _clock_text(), score[0], score[1], holder.player_name if holder != null and is_instance_valid(holder) else "none"])
+			print("SMOKE_STATUS t=%.0f mode=%d clock=%s score=%d-%d holder=%s ball=%s" % [_t, mode, _clock_text(), score[0], score[1], holder.player_name if holder != null and is_instance_valid(holder) else "none", ball.position])
+	if autoplay and holder != null and is_instance_valid(holder) and mode == M_PLAY:
+		var tm: int = holder.team_id
+		_adv[tm] = maxf(_adv[tm], ball.position.z * _atk_sign(tm))
+		_carry_frames[tm] += 1
 	if autoplay:
 		if mode == M_PLAY and holder == null:
 			_loose_t += delta
@@ -569,6 +575,7 @@ func _begin_fulltime() -> void:
 	if autoplay:
 		print("SMOKE_DONE score=%d-%d" % [score[0], score[1]])
 		print("SMOKE_STATS " + str(stats))
+		print("SMOKE_ADV max_advance=%s carry_frames=%s" % [_adv, _carry_frames])
 		get_tree().quit()
 
 
