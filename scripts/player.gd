@@ -187,18 +187,32 @@ func setup(p_team: int, p_role: String, p_home: Vector3, shirt: Color, shorts: C
 	lab.outline_size = 0
 	lab.position = Vector3(0, 1.45, -0.215) + o
 	lab.rotation.y = PI
-	_body.add_child(lab)
+	if Global.quality > 0:
+		_body.add_child(lab)
+	else:
+		lab.free()
 
 	# ---- head with a face
 	var head := _pivot(_body, Vector3(0, 1.9, 0) + o)
 	_add(head, _ball(0.235), skin, Vector3(0.95, 1.08, 1.0))
 	_add(head, _box(Vector3(0.06, 0.08, 0.06)), skin_dk, Vector3(0, -0.02, 0.23))
-	for side in [-1, 1]:
+	var detail := Global.quality > 0
+	for side in ([-1, 1] if detail else []):
 		_add(head, _box(Vector3(0.06, 0.045, 0.03)), Color("f4f4f4"), Vector3(side * 0.085, 0.04, 0.2))
 		_add(head, _box(Vector3(0.035, 0.04, 0.03)), Color("1a1208"), Vector3(side * 0.085, 0.04, 0.215))
 		_add(head, _box(Vector3(0.11, 0.025, 0.03)), hair_col if hair_style != "bald" else skin_dk, Vector3(side * 0.085, 0.1, 0.205))
 		_add(head, _box(Vector3(0.05, 0.1, 0.06)), skin_dk, Vector3(side * 0.23, 0.0, -0.01))
 	_add(head, _box(Vector3(0.12, 0.025, 0.03)), skin_dk.darkened(0.25), Vector3(0, -0.11, 0.2))
+	var roll := int(look.get("id", number)) * 7919 % 10
+	if detail and roll < 3:
+		var beard_col := hair_col.darkened(0.1) if hair_col != HAIR["blond"] else HAIR["brown"]
+		if roll == 0:   # full beard
+			_add(head, _box(Vector3(0.36, 0.16, 0.12)), beard_col, Vector3(0, -0.12, 0.13))
+			_add(head, _box(Vector3(0.4, 0.2, 0.2)), beard_col, Vector3(0, -0.06, 0.0))
+		elif roll == 1:   # moustache
+			_add(head, _box(Vector3(0.18, 0.04, 0.05)), beard_col, Vector3(0, -0.07, 0.22))
+		else:   # goatee
+			_add(head, _box(Vector3(0.1, 0.1, 0.06)), beard_col, Vector3(0, -0.14, 0.2))
 	match hair_style:
 		"short":
 			_add(head, _ball(0.255), hair_col, Vector3(0, 0.08, -0.025), Vector3(1.0, 0.7, 1.02))

@@ -19,4 +19,5 @@ On the phone: open the file, allow "install unknown apps" when asked, install.
 ## Still to do
 - Articulated players: running animation, kick swing, faces, kit trim, numbers on back
 - Goalkeeper dive pose and goal celebrations
+- Per-player face variety (beards, moustaches); Low quality simplifies faces and stands
 - Final on-device tuning

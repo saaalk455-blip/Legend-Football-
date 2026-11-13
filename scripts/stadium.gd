@@ -85,7 +85,7 @@ func _build_stands() -> void:
 		var along: Vector3 = st[1]
 		var depth: Vector3 = st[2]
 		var length: float = st[3]
-		var tiers := 6
+		var tiers := 3 if Global.quality == 0 else 6
 		var per_row := int(length / 1.3)
 		var body_mm := MultiMesh.new()
 		body_mm.transform_format = MultiMesh.TRANSFORM_3D
