@@ -1383,7 +1383,7 @@ func _ai_with_ball(p: Player, react: float, mult: float, delta: float) -> void:
 		return
 	var dist_goal := Vector2(p.position.x, p.position.z - gz).length()
 	if hold_time > react:
-		if dist_goal < 27.0:
+		if dist_goal < 31.0:
 			_ai_shoot(p)
 			return
 		var pressure := _nearest_enemy_dist(p.position, p.team_id)
