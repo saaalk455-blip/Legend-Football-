@@ -20,6 +20,36 @@ var ai_cd := 0.0
 var player_name := ""
 var stamina := 1.0
 var yellow := 0
+var player_id := 0
+var accel_stat := 70
+var stamina_stat := 70
+var dribble_stat := 70
+var defense_stat := 70
+var keeper_stat := 0         # goalkeepers only
+var vel := Vector3.ZERO
+
+
+func top_speed() -> float:
+	return 4.6 + 0.034 * float(speed_stat)
+
+
+func step_move(desired: Vector3, delta: float) -> void:
+	## Momentum: velocity eases toward the desired velocity (stopping is quicker
+	## than starting) and the body can only turn at a limited rate.
+	var acc := 12.0 + 0.13 * float(accel_stat)
+	var diff := desired - vel
+	var braking := desired.length() < vel.length()
+	var max_change := acc * (1.5 if braking else 1.0) * delta
+	if diff.length() > max_change:
+		diff = diff.normalized() * max_change
+	vel += diff
+	position += vel * delta
+	var sp := vel.length()
+	if sp > 0.6:
+		var target := atan2(vel.x, vel.z)
+		var d := wrapf(target - rotation.y, -PI, PI)
+		var turn := (11.0 - 0.55 * sp) * delta
+		rotation.y += clampf(d, -turn, turn)
 
 
 func _part(mesh: Mesh, color: Color, pos: Vector3, scl: Vector3 = Vector3.ONE) -> MeshInstance3D:

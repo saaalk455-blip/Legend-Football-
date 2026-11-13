@@ -295,6 +295,12 @@ func _build_teams() -> void:
 			p.speed_stat = r["speed"]
 			p.shoot_stat = r["shoot"]
 			p.pass_stat = r["pass"]
+			p.player_id = r["id"]
+			p.accel_stat = r["accel"]
+			p.stamina_stat = r["stamina"]
+			p.dribble_stat = r["dribble"]
+			p.defense_stat = r["defense"]
+			p.keeper_stat = r["keeper"]
 			p.rotation.y = _yaw(Vector3(0, 0, _atk_sign(team_id)))
 			players.append(p)
 
@@ -690,6 +696,8 @@ func _start_restart(kind: int, team: int, pos: Vector3, taker: Player) -> void:
 	else:
 		restart_wait_max = 12.0
 	offside_list.clear()
+	for q in players:
+		q.vel = Vector3.ZERO
 	ball_vel = Vector3.ZERO
 	hold_time = 0.0
 	blocked_timer = 0.0
@@ -937,10 +945,10 @@ func _try_pickup() -> void:
 		var is_gk := p.role == "GK"
 		if speed > (40.0 if is_gk else 16.0):
 			continue
-		var opp_gk_reach: float = [1.3, 1.7, 2.1][Global.difficulty]
 		var reach := 1.25
 		if is_gk:
-			reach = opp_gk_reach if p.team_id == 1 else 1.9
+			var diff_scale: float = [0.75, 0.92, 1.08][Global.difficulty]
+			reach = (1.2 + float(p.keeper_stat) * 0.009) * (diff_scale if p.team_id == 1 else 1.0)
 		var d := Vector2(p.position.x - ball.position.x, p.position.z - ball.position.z).length()
 		if d < reach and d < best_d:
 			best_d = d
@@ -1020,7 +1028,7 @@ func _attempt_tackle(tackler: Player, victim: Player, win_chance: float) -> void
 	var r := randf()
 	if r < foul_p:
 		_call_foul(tackler, victim)
-	elif r < foul_p + win_chance:
+	elif r < foul_p + clampf(win_chance + float(tackler.defense_stat - victim.dribble_stat) * 0.004, 0.05, 0.9):
 		blocked_player = victim
 		blocked_timer = 0.8
 		holder = tackler
@@ -1095,32 +1103,35 @@ func _move_controlled(delta: float) -> void:
 	_running = false
 	if controlled == null or not is_instance_valid(controlled):
 		return
+	var c := controlled
 	var dir := _stick_dir()
-	if dir == Vector3.ZERO:
-		return
 	if _is_restart_mode():
-		if controlled == restart_taker:
-			controlled.rotation.y = lerp_angle(controlled.rotation.y, _yaw(dir), clampf(delta * 14.0, 0.0, 1.0))
+		if c == restart_taker:
+			c.vel = Vector3.ZERO
+			if dir != Vector3.ZERO:
+				c.rotation.y = lerp_angle(c.rotation.y, _yaw(dir), clampf(delta * 14.0, 0.0, 1.0))
 			return
 		if mode == M_KICKOFF or mode == M_PENALTY:
+			c.vel = Vector3.ZERO
 			return
-	var spd := 4.5 + 0.03 * float(controlled.speed_stat)
-	if controls.held.get("RUN", false) and controlled.stamina > 0.05:
-		spd *= 1.5
-		_running = true
-		controlled.stamina = maxf(0.0, controlled.stamina - 0.22 * delta)
-	var p := controlled.position + dir * spd * delta
-	p.x = clampf(p.x, -HALF_W - 2.0, HALF_W + 2.0)
-	p.z = clampf(p.z, -HALF_L - 3.0, HALF_L + 3.0)
-	controlled.position = p
-	controlled.rotation.y = lerp_angle(controlled.rotation.y, _yaw(dir), clampf(delta * 14.0, 0.0, 1.0))
+	var desired := Vector3.ZERO
+	if dir != Vector3.ZERO:
+		var spd := c.top_speed()
+		if controls.held.get("RUN", false) and c.stamina > 0.05:
+			spd *= 1.35
+			_running = true
+			c.stamina = maxf(0.0, c.stamina - 0.30 * (1.6 - float(c.stamina_stat) / 100.0) * delta)
+		desired = dir.limit_length(1.0) * spd
+	c.step_move(desired, delta)
+	c.position.x = clampf(c.position.x, -HALF_W - 2.0, HALF_W + 2.0)
+	c.position.z = clampf(c.position.z, -HALF_L - 3.0, HALF_L + 3.0)
 
 
 func _regen_stamina(delta: float) -> void:
 	for p in players:
 		if p == controlled and _running:
 			continue
-		p.stamina = minf(1.0, p.stamina + 0.1 * delta)
+		p.stamina = minf(1.0, p.stamina + (0.07 + float(p.stamina_stat) * 0.0007) * delta)
 
 
 func _nearest_player(team_id: int, exclude: Player = null) -> Player:
@@ -1354,14 +1365,14 @@ func _move_toward(p: Player, target: Vector3, mult: float, delta: float) -> void
 	var to := target - p.position
 	to.y = 0.0
 	var dist := to.length()
-	if dist < 0.4:
-		return
-	var spd := (4.5 + 0.03 * float(p.speed_stat)) * mult
-	if dist > 12.0:
-		spd *= 1.25
-	var dir := to / dist
-	p.position += dir * minf(spd * delta, dist)
-	p.rotation.y = lerp_angle(p.rotation.y, _yaw(dir), clampf(delta * 10.0, 0.0, 1.0))
+	var desired := Vector3.ZERO
+	if dist > 0.4:
+		var spd := p.top_speed() * mult
+		if dist > 12.0:
+			spd *= 1.25
+		spd *= clampf(dist / 2.5, 0.25, 1.0)   # ease in near the target
+		desired = to / dist * spd
+	p.step_move(desired, delta)
 
 
 func _ai_try_tackle(p: Player, diff: int) -> void:

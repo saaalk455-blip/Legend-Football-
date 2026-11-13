@@ -170,6 +170,12 @@ func get_roster(idx: int) -> Array:
 			"shoot": clampi(shoot, 25, 99),
 			"pass": clampi(pas, 30, 99),
 			"skin": look["skin"], "hair": look["hair"], "hcol": look["hcol"],
+			"id": idx * 100 + i + 1,
+			"accel": clampi(tm["spd"] + rng.randi_range(-10, 10), 40, 99),
+			"stamina": clampi(68 + rng.randi_range(-10, 20), 40, 99),
+			"dribble": clampi(int((tm["atk"] + tm["spd"]) / 2.0) + rng.randi_range(-8, 8) + (6 if role == "MID" or role == "FWD" else -4), 30, 99),
+			"defense": clampi(tm["def"] + rng.randi_range(-8, 8) + (8 if role == "DEF" else (-15 if role == "FWD" else 0)), 25, 99),
+			"keeper": clampi(tm["def"] + rng.randi_range(-6, 10), 40, 99) if role == "GK" else 0,
 		})
 	_rosters[idx] = out
 	return out
