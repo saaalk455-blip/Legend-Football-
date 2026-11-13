@@ -18,4 +18,5 @@ On the phone: open the file, allow "install unknown apps" when asked, install.
 
 ## Still to do
 - Articulated players: running animation, kick swing, faces, kit trim, numbers on back
+- Goalkeeper dive pose and goal celebrations
 - Final on-device tuning

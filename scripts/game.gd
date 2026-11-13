@@ -440,7 +440,24 @@ func _process(delta: float) -> void:
 	ball_shadow.position = Vector3(ball.position.x, 0.03, ball.position.z)
 	var sh := clampf(1.0 - (ball.position.y - BALL_R) * 0.08, 0.4, 1.0)
 	ball_shadow.scale = Vector3(sh, 1.0, sh)
+	_gk_dive_fx()
 	_update_hud()
+
+
+func _gk_dive_fx() -> void:
+	if mode != M_PLAY or ball_vel.length() < 14.0:
+		return
+	for q in players:
+		if q.role != "GK":
+			continue
+		var rel := ball.position - q.position
+		rel.y = 0.0
+		if rel.length() > 7.0:
+			continue
+		var right := Vector3(cos(q.rotation.y), 0.0, -sin(q.rotation.y))
+		var lat := rel.dot(right)
+		if absf(lat) > 0.8:
+			q.dive(signf(lat))
 
 
 func _update_hud() -> void:
@@ -878,6 +895,9 @@ func _score_goal(end: float) -> void:
 	if last_touch_team != scorer:
 		who = "OWN GOAL"
 	stadium.excite = 1.0
+	for q in players:
+		if q.team_id == scorer and q.role != "GK":
+			q.celebrate(2.6)
 	hud.set_score(score[0], score[1])
 	hud.message("GOAL!", 3.0, true, who)
 	sfx.play("whistle")

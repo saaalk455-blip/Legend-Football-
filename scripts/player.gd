@@ -38,6 +38,9 @@ var _phase := 0.0
 var _kick_t := 0.0
 var _last_pos := Vector3.ZERO
 var _speed_vis := 0.0
+var _dive_t := 0.0
+var _dive_s := 1.0
+var _cel_t := 0.0
 
 
 func top_speed() -> float:
@@ -65,6 +68,17 @@ func step_move(desired: Vector3, delta: float) -> void:
 
 func kick() -> void:
 	_kick_t = 0.28
+
+
+func dive(side: float) -> void:
+	## Goalkeeper save pose; side is +1 / -1 along the keeper's right hand.
+	if _dive_t <= 0.0:
+		_dive_t = 0.7
+		_dive_s = side
+
+
+func celebrate(secs: float) -> void:
+	_cel_t = secs
 
 
 static func _mat(c: Color) -> StandardMaterial3D:
@@ -235,3 +249,25 @@ func _process(delta: float) -> void:
 		_leg_r.rotation.x = lerpf(_leg_r.rotation.x, -1.5, f)
 		_arm_l.rotation.x = lerpf(_arm_l.rotation.x, 0.6, f)
 		_body.rotation.x = lerpf(_body.rotation.x, 0.18, f)
+	if _dive_t > 0.0:
+		_dive_t = maxf(_dive_t - delta, 0.0)
+		var f2 := sin((1.0 - _dive_t / 0.7) * PI)
+		_body.rotation.z = -_dive_s * 1.15 * f2
+		_arm_l.rotation.x = lerpf(_arm_l.rotation.x, -2.9, f2)
+		_arm_r.rotation.x = lerpf(_arm_r.rotation.x, -2.9, f2)
+		_leg_l.rotation.z = _dive_s * 0.35 * f2
+		_leg_r.rotation.z = -_dive_s * 0.35 * f2
+		position.y = f2 * 0.35
+	elif _body.rotation.z != 0.0:
+		_body.rotation.z = 0.0
+		_leg_l.rotation.z = 0.0
+		_leg_r.rotation.z = 0.0
+		position.y = 0.0
+	if _cel_t > 0.0:
+		_cel_t = maxf(_cel_t - delta, 0.0)
+		var w := Time.get_ticks_msec() / 1000.0 * 9.0 + float(player_id)
+		_arm_l.rotation.x = -2.8 + sin(w) * 0.3
+		_arm_r.rotation.x = -2.8 - sin(w) * 0.3
+		position.y = absf(sin(w * 0.8)) * 0.45
+		if _cel_t == 0.0:
+			position.y = 0.0
