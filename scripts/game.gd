@@ -76,6 +76,7 @@ var last_touch_team := 0
 var last_touch_name := ""
 var cam_z := 0.0
 var sfx: Sfx
+var stadium: Stadium
 var _running := false
 
 # match flow
@@ -190,11 +191,19 @@ func _build_environment() -> void:
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.7, 0.72, 0.85)
 	e.ambient_light_energy = 0.6
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.fog_enabled = true
+	e.fog_light_color = Color("0b1a3a")
+	e.fog_density = 0.0025
 	env.environment = e
 	add_child(env)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-60, 25, 0)
-	sun.light_energy = 0.9
+	sun.light_energy = 1.0
+	sun.light_color = Color("fff1d6")
+	if Global.quality >= 2:
+		sun.shadow_enabled = true
+		sun.directional_shadow_max_distance = 110.0
 	add_child(sun)
 
 
@@ -202,8 +211,9 @@ func _build_pitch() -> void:
 	var bands := 10
 	var band_len := PITCH_L / bands
 	for i in bands:
-		var c := Color("1f9d3a") if i % 2 == 0 else Color("27b046")
-		_box(Vector3(PITCH_W, 0.1, band_len), Vector3(0, -0.05, -HALF_L + band_len * (i + 0.5)), c)
+		var c := Color("1c9236") if i % 2 == 0 else Color("2cb64a")
+		var band := _box(Vector3(PITCH_W, 0.1, band_len), Vector3(0, -0.05, -HALF_L + band_len * (i + 0.5)), c)
+		band.material_override = Stadium.grass_material(c)
 	_box(Vector3(PITCH_W + 40, 0.1, PITCH_L + 40), Vector3(0, -0.2, 0), Color("14602a"))
 
 	var white := Color("f2f2f2")
@@ -250,23 +260,9 @@ func _build_goals() -> void:
 		_net(Vector3(0.05, GOAL_H, 2.0), Vector3(-GOAL_W / 2.0, GOAL_H / 2.0, gz + s * 1.0))
 		_net(Vector3(0.05, GOAL_H, 2.0), Vector3(GOAL_W / 2.0, GOAL_H / 2.0, gz + s * 1.0))
 		_net(Vector3(GOAL_W, 0.05, 2.0), Vector3(0, GOAL_H, gz + s * 1.0))
-	# Simple crowd: coloured blocks around the pitch
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	var cols := [Color("e63946"), Color("ffd60a"), Color("2a6fdb"), Color("f1faee"), Color("8a4fd6")]
-	for i in 42:
-		var z := -HALF_L + (PITCH_L * i / 41.0)
-		for row in 2:
-			for sx in [-1, 1]:
-				_box(Vector3(2.0, 1.6 + row * 1.2, 2.2), Vector3(sx * (HALF_W + 6.0 + row * 2.4), 1.0 + row * 1.0, z), cols[rng.randi() % cols.size()])
-	for i in 26:
-		var x := -HALF_W - 6.0 + (PITCH_W + 12.0) * float(i) / 25.0
-		for sz in [-1, 1]:
-			_box(Vector3(2.4, 1.6, 2.2), Vector3(x, 1.0, sz * (HALF_L + 6.0)), cols[rng.randi() % cols.size()])
-	for sx in [-1, 1]:
-		_box(Vector3(4.0, 7.0, PITCH_L + 10), Vector3(sx * (HALF_W + 12.0), 3.5, 0), Color("22304f"))
-	for sz in [-1, 1]:
-		_box(Vector3(PITCH_W + 24.0, 6.0, 4.0), Vector3(0, 3.0, sz * (HALF_L + 9.5)), Color("22304f"))
+	stadium = Stadium.new()
+	add_child(stadium)
+	stadium.build(HALF_W, HALF_L)
 
 
 func _build_teams() -> void:
@@ -878,6 +874,7 @@ func _score_goal(end: float) -> void:
 	var who := last_touch_name
 	if last_touch_team != scorer:
 		who = "OWN GOAL"
+	stadium.excite = 1.0
 	hud.set_score(score[0], score[1])
 	hud.message("GOAL!", 3.0, true, who)
 	sfx.play("whistle")
