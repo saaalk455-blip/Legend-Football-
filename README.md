@@ -10,8 +10,10 @@ On the phone: open the file, allow "install unknown apps" when asked, install.
 - 24 national teams (2000-2002 era), team + opponent selection, difficulty, quality, match length, Arabic/English
 - Side-line TV camera, touch stick + PASS / LONG / SHOOT / SWITCH / RUN (stamina), tackle
 - Rules: kick-off, throw-in, goal kick, corner, fouls + free kicks, penalties, yellow/red cards, offside, two halves with stoppage time and switching ends
+- Procedural sounds (kick, bounce, whistle, goal cheer, crowd), no audio files
+- Editable touch layout, button size and opacity (Settings)
 - HUD: score, clock, player cards, mini-map; intro, pause and full-time screens
 - CI runs two headless test matches (AI vs AI and a bot on the touch controls) before every build
 
 ## Still to do
-- Phase 8: sounds; Phase 9: graphics polish; final on-device tuning
+- Phase 9: graphics polish; final on-device tuning

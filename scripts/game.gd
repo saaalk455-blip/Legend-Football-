@@ -75,6 +75,7 @@ var tackle_cd := 0.0
 var last_touch_team := 0
 var last_touch_name := ""
 var cam_z := 0.0
+var sfx: Sfx
 var _running := false
 
 # match flow
@@ -122,6 +123,8 @@ func _ready() -> void:
 	_build_teams()
 	_build_ball()
 	_build_camera()
+	sfx = Sfx.new()
+	add_child(sfx)
 	_build_controls()
 	_build_hud()
 	if autoplay:
@@ -568,6 +571,7 @@ func _begin_halftime() -> void:
 	mode = M_HALFTIME
 	mode_timer = 3.5
 	holder = null
+	sfx.play("whistle")
 	hud.message("HALF TIME", 3.0, true, "%d - %d" % [score[0], score[1]])
 	if smoke:
 		print("SMOKE_HALFTIME score=%d-%d" % [score[0], score[1]])
@@ -589,6 +593,7 @@ func _begin_fulltime() -> void:
 	holder = null
 	var na: String = Global.TEAMS[team_a]["name"]
 	var nb: String = Global.TEAMS[team_b]["name"]
+	sfx.play("whistle")
 	hud.message("FULL TIME", 3.0, true)
 	hud.show_fulltime(na, nb, score[0], score[1], _stats_text())
 	if smoke:
@@ -826,6 +831,8 @@ func _release_ball(kicker: Player) -> int:
 
 func _launch(vel: Vector3, prev: int, curve: float = 0.0) -> void:
 	ball_spin = curve
+	if prev != M_THROW:
+		sfx.play("kick", clampf(-14.0 + vel.length() * 0.5, -14.0, 0.0))
 	if prev == M_THROW:
 		var h := Vector2(vel.x, vel.z)
 		if h.length() > 15.0:
@@ -871,6 +878,8 @@ func _score_goal(end: float) -> void:
 		who = "OWN GOAL"
 	hud.set_score(score[0], score[1])
 	hud.message("GOAL!", 3.0, true, who)
+	sfx.play("whistle")
+	sfx.play("cheer", -4.0)
 
 
 func _ball_out_side() -> void:
@@ -953,6 +962,8 @@ func _ball_physics(delta: float) -> void:
 	if ball.position.y <= BALL_R:
 		ball.position.y = BALL_R
 		if ball_vel.y < 0.0:
+			if absf(ball_vel.y) > 3.0:
+				sfx.play("bounce", clampf(-18.0 + absf(ball_vel.y), -18.0, -4.0))
 			ball_vel.y = -ball_vel.y * 0.55
 			if ball_vel.y < 1.5:
 				ball_vel.y = 0.0
@@ -1092,6 +1103,7 @@ func _call_foul(off: Player, vic: Player) -> void:
 				title = "2ND YELLOW - RED CARD"
 			else:
 				title = "YELLOW CARD"
+	sfx.play("whistle")
 	hud.message(title, 2.2, false, off.player_name)
 	var team := vic.team_id
 	var end_sign := signf(_own_goal_z(off.team_id))
