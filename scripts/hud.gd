@@ -61,6 +61,7 @@ func setup(name_a: String, code_a: String, kit_a: Array, name_b: String, code_b:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.offset_top = 34.0   # keep clear of the phone status bar
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 	_build_score(name_a, kit_a, name_b, kit_b)

@@ -16,8 +16,8 @@ const GRAVITY := 22.0
 const BALL_R := 0.35
 const HALF_SECONDS := 2700.0   # 45 game minutes
 
-const CAM_X := 66.0
-const CAM_H := 40.0
+const CAM_X := 40.0
+const CAM_H := 27.0
 
 const M_INTRO := 0
 const M_KICKOFF := 1
@@ -211,7 +211,7 @@ func _build_pitch() -> void:
 	var bands := 10
 	var band_len := PITCH_L / bands
 	for i in bands:
-		var c := Color("1c9236") if i % 2 == 0 else Color("2cb64a")
+		var c := Color("3a8c35") if i % 2 == 0 else Color("46a03e")
 		var band := _box(Vector3(PITCH_W, 0.1, band_len), Vector3(0, -0.05, -HALF_L + band_len * (i + 0.5)), c)
 		band.material_override = Stadium.grass_material(c)
 	_box(Vector3(PITCH_W + 40, 0.1, PITCH_L + 40), Vector3(0, -0.2, 0), Color("14602a"))
@@ -291,6 +291,7 @@ func _build_teams() -> void:
 			add_child(p)
 			var r: Dictionary = roster[i]
 			p.setup(team_id, f[0], Vector3(x, 0, z), shirt, shorts, i + 1, r)
+			p.scale = Vector3(1.3, 1.3, 1.3)
 			p.player_name = r["name"]
 			p.speed_stat = r["speed"]
 			p.shoot_stat = r["shoot"]
@@ -317,6 +318,7 @@ func _build_ball() -> void:
 	sm.radial_segments = 10
 	sm.rings = 6
 	ball.mesh = sm
+	ball.scale = Vector3(1.5, 1.5, 1.5)
 	ball.material_override = _mat(Color("fafafa"))
 	ball.position = Vector3(0, BALL_R, 0)
 	add_child(ball)
@@ -333,11 +335,11 @@ func _build_ball() -> void:
 
 func _build_camera() -> void:
 	cam = Camera3D.new()
-	cam.fov = 40.0
+	cam.fov = 32.0
 	cam.far = 400.0
 	cam.position = Vector3(CAM_X, CAM_H, 0)
 	add_child(cam)
-	cam.look_at(Vector3(6.0, 0, 0), Vector3.UP)
+	cam.look_at(Vector3(4.0, 0, 0), Vector3.UP)
 	cam.current = true
 
 
@@ -430,11 +432,11 @@ func _process(delta: float) -> void:
 			_loose_t = 0.0
 	# Side-line TV camera following the ball along the pitch.
 	var f := ball.position
-	var look_z := clampf(f.z + ball_vel.z * 0.12, -HALF_L + 8.0, HALF_L - 8.0)
+	var look_z := clampf(f.z + ball_vel.z * 0.12, -HALF_L + 12.0, HALF_L - 12.0)
 	cam_z = lerpf(cam_z, look_z, clampf(delta * 3.0, 0.0, 1.0))
 	var look_x := f.x * 0.15
 	cam.position = Vector3(CAM_X + look_x, CAM_H, cam_z)
-	cam.look_at(Vector3(6.0 + look_x, 0.0, cam_z), Vector3.UP)
+	cam.look_at(Vector3(4.0 + look_x, 0.0, cam_z), Vector3.UP)
 	ball_shadow.position = Vector3(ball.position.x, 0.03, ball.position.z)
 	var sh := clampf(1.0 - (ball.position.y - BALL_R) * 0.08, 0.4, 1.0)
 	ball_shadow.scale = Vector3(sh, 1.0, sh)
@@ -446,7 +448,7 @@ func _update_hud() -> void:
 	var valid_c := controlled != null and is_instance_valid(controlled)
 	indicator.visible = valid_c
 	if valid_c:
-		indicator.position = controlled.position + Vector3(0, 2.7 + sin(_t * 6.0) * 0.12, 0)
+		indicator.position = controlled.position + Vector3(0, 3.4 + sin(_t * 6.0) * 0.12, 0)
 		number_label.text = str(controlled.shirt_number)
 		hud.set_card(false, controlled.role, controlled.player_name, controlled.stamina)
 	var opp := _card_opponent()
