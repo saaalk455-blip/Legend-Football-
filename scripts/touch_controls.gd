@@ -85,7 +85,7 @@ func _layout() -> void:
 	_btn_pos["PASS"] = Vector2(s.x - 320.0, s.y - 110.0)
 	_btn_pos["LONG"] = Vector2(s.x - 330.0, s.y - 260.0)
 	_btn_pos["SWITCH"] = Vector2(s.x - 170.0, s.y - 320.0)
-	_btn_pos["RUN"] = Vector2(s.x - 480.0, s.y - 150.0)
+	_btn_pos["RUN"] = Vector2(s.x - 470.0, s.y - 105.0)
 	for a in _btn_nodes:
 		var n: Panel = _btn_nodes[a]
 		n.position = _btn_pos[a] - n.size / 2.0

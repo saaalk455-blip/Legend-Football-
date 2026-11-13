@@ -47,12 +47,13 @@ jobs:
 
       - name: Smoke test (headless, AI plays a match)
         run: |
-          godot --headless --path . --fixed-fps 60 --quit-after 7200 res://scenes/game.tscn -- autoplay 2>&1 | tee smoke.log
+          godot --headless --path . --fixed-fps 60 --quit-after 40000 res://scenes/game.tscn -- autoplay 2>&1 | tee smoke.log
           grep -E "SMOKE_STATUS" smoke.log | tail -5 || true
           if grep -E "SCRIPT ERROR|Parse Error|Failed to load script|Invalid (call|access|get|set)" smoke.log; then
             echo "Smoke test found script errors"; exit 1
           fi
-          grep -q "SMOKE_STATUS" smoke.log || { echo "Game produced no status output"; exit 1; }
+          grep -E "SMOKE_(HALFTIME|DONE|STATS)" smoke.log || true
+          grep -q "SMOKE_DONE" smoke.log || { echo "Match did not reach full time"; exit 1; }
 
       - name: Export debug APK
         run: |

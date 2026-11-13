@@ -11,6 +11,8 @@ var pass_stat := 70
 var shirt_number := 1
 var ai_cd := 0.0
 var player_name := ""
+var stamina := 1.0
+var yellow := 0
 
 
 func setup(p_team: int, p_role: String, p_home: Vector3, shirt: Color, shorts: Color, number: int) -> void:

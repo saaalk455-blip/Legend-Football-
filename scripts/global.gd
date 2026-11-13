@@ -31,6 +31,14 @@ const RAW_TEAMS := [
 	["Morocco", "arabic", "c1121f", "1f8a3a", 82, 76, 74],
 ]
 
+const CODES := {
+	"Brazil": "BRA", "Argentina": "ARG", "France": "FRA", "Italy": "ITA", "Germany": "GER",
+	"Spain": "ESP", "England": "ENG", "Netherlands": "NED", "Portugal": "POR", "Egypt": "EGY",
+	"Japan": "JPN", "South Korea": "KOR", "Nigeria": "NGA", "Cameroon": "CMR", "Mexico": "MEX",
+	"USA": "USA", "Uruguay": "URU", "Turkey": "TUR", "Croatia": "CRO", "Senegal": "SEN",
+	"Sweden": "SWE", "Denmark": "DEN", "Saudi Arabia": "KSA", "Morocco": "MAR",
+}
+
 # Fictional name pools: [first names, family names]
 const NAMES := {
 	"latam": [["Carlos", "Diego", "Mateo", "Lucas", "Rafael", "Gabriel", "Pablo", "Felipe"], ["Silva", "Santos", "Costa", "Moreno", "Rojas", "Cruz", "Lima", "Campos"]],
@@ -97,6 +105,7 @@ func _ready() -> void:
 			"c1": Color(r[2]), "c2": Color(r[3]),
 			"spd": r[4], "atk": r[5], "def": r[6],
 			"pwr": int(round((r[4] + r[5] + r[6]) / 3.0)),
+			"code": CODES.get(r[0], str(r[0]).substr(0, 3).to_upper()),
 		})
 	load_data()
 	team_index = clampi(team_index, 0, TEAMS.size() - 1)
