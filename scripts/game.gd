@@ -39,10 +39,13 @@ var goal_timer := 0.0
 var score := [0, 0]
 var score_label: Label
 var player_card: Label
+var autoplay := false      # CI smoke test: AI plays both sides
+var _auto_t := 0.0
 var goal_label: Label
 
 
 func _ready() -> void:
+	autoplay = "autoplay" in OS.get_cmdline_user_args()
 	Global.apply_quality()
 	team_a = Global.team_index
 	team_b = Global.opp_index
@@ -56,6 +59,8 @@ func _ready() -> void:
 	_build_camera()
 	_build_ui()
 	_build_controls()
+	if autoplay:
+		controlled = null
 
 
 func _focus_point() -> Vector3:
@@ -69,6 +74,11 @@ func _process(delta: float) -> void:
 	if cam == null or ball == null:
 		return
 	_t += delta
+	if autoplay:
+		_auto_t += delta
+		if _auto_t >= 30.0:
+			_auto_t = 0.0
+			print("SMOKE_STATUS t=%.0f score=%d-%d holder=%s ball=%s" % [_t, score[0], score[1], holder.player_name if holder != null else "none", ball.position])
 	var f := _focus_point()
 	# TV-style camera: follows smoothly along the pitch.
 	var target := Vector3(f.x * 0.4, 34.0, f.z * 0.75 + 30.0)
@@ -222,7 +232,7 @@ func _try_pickup() -> void:
 	if best != null:
 		holder = best
 		hold_time = 0.0
-		if best.team_id == 0:
+		if best.team_id == 0 and not autoplay:
 			controlled = best
 
 
@@ -251,7 +261,8 @@ func _kickoff() -> void:
 	holder = null
 	ball.position = Vector3(0, BALL_R, 0)
 	ball_vel = Vector3.ZERO
-	controlled = _nearest_player(0)
+	if not autoplay:
+		controlled = _nearest_player(0)
 	_update_score_ui(false)
 
 
@@ -359,7 +370,7 @@ func _update_ai(delta: float) -> void:
 		var chaser := _chaser(team_id)
 		var has_ball := holder != null and holder.team_id == team_id
 		for p in players:
-			if p.team_id != team_id or p == controlled:
+			if p.team_id != team_id or (p == controlled and not autoplay):
 				continue
 			var mult := spd_mult if team_id == 1 else 0.95
 			if p.role == "GK":
@@ -448,7 +459,7 @@ func _ai_try_tackle(p: Player, diff: int) -> void:
 		blocked_timer = 0.8
 		holder = p
 		hold_time = 0.0
-		if p.team_id == 0:
+		if p.team_id == 0 and not autoplay:
 			controlled = p
 
 
