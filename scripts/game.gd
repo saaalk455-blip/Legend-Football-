@@ -53,6 +53,7 @@ var indicator: Node3D
 var number_label: Label3D
 var autoplay := false      # CI smoke test: AI plays both sides
 var _auto_t := 0.0
+var _loose_t := 0.0
 var _t := 0.0
 var _auto_switch_t := 0.0
 var _mat_cache := {}
@@ -392,6 +393,21 @@ func _process(delta: float) -> void:
 		if _auto_t >= 30.0:
 			_auto_t = 0.0
 			print("SMOKE_STATUS t=%.0f mode=%d clock=%s score=%d-%d holder=%s" % [_t, mode, _clock_text(), score[0], score[1], holder.player_name if holder != null and is_instance_valid(holder) else "none"])
+	if autoplay:
+		if mode == M_PLAY and holder == null:
+			_loose_t += delta
+			if _loose_t > 8.0:
+				_loose_t = 0.0
+				print("SMOKE_LOOSE half=%d ball=%s vel=%s y_ok=%s blocked=%s" % [half, ball.position, ball_vel, ball.position.y <= 1.3, blocked_player.player_name if blocked_player != null and is_instance_valid(blocked_player) else "none"])
+				var near: Array = []
+				for q in players:
+					near.append([q.position.distance_to(ball.position), q])
+				near.sort_custom(func(x, y): return x[0] < y[0])
+				for i in 3:
+					var q: Player = near[i][1]
+					print("   near%d d=%.1f team=%d role=%s pos=%s" % [i, near[i][0], q.team_id, q.role, q.position])
+		else:
+			_loose_t = 0.0
 	# Side-line TV camera following the ball along the pitch.
 	var f := ball.position
 	var look_z := clampf(f.z + ball_vel.z * 0.12, -HALF_L + 8.0, HALF_L - 8.0)
