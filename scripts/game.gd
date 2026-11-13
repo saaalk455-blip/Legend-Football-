@@ -346,6 +346,8 @@ func _build_camera() -> void:
 func _build_controls() -> void:
 	controls = TouchControls.new()
 	add_child(controls)
+	if smoke:
+		controls.run_selftest()
 	controls.button_down.connect(_on_button_down)
 	controlled = _nearest_player(0)
 	indicator = Node3D.new()

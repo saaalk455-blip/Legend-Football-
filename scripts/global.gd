@@ -72,6 +72,8 @@ var language := "en"       # "en" or "ar"
 var sound_on := true
 var btn_scale := 1.0       # touch button size multiplier
 var btn_opacity := 0.55    # touch button fill alpha
+var stick_sens := 1.0      # stick sensitivity (travel = 110 px / sens)
+var btn_hidden := {}       # action -> true when hidden (SWITCH / LONG only)
 var btn_offsets := {}      # action -> Vector2 offset from default position
 
 const TR := {
@@ -88,6 +90,9 @@ const TR := {
 	"BUTTON SIZE": {"ar": "حجم الأزرار"},
 	"BUTTON OPACITY": {"ar": "شفافية الأزرار"},
 	"EDIT LAYOUT": {"ar": "تعديل أماكن الأزرار"},
+	"STICK SENSITIVITY": {"ar": "حساسية العصا"},
+	"SWITCH BUTTON": {"ar": "زر SWITCH"},
+	"LONG BUTTON": {"ar": "زر LONG"},
 	"RESET": {"ar": "إعادة"},
 	"SAVE": {"ar": "حفظ"},
 	"Easy": {"ar": "سهل"},
@@ -217,6 +222,8 @@ func save_data() -> void:
 	c.set_value("controls", "scale", btn_scale)
 	c.set_value("controls", "opacity", btn_opacity)
 	c.set_value("controls", "offsets", btn_offsets)
+	c.set_value("controls", "stick_sens", stick_sens)
+	c.set_value("controls", "hidden", btn_hidden)
 	c.save(SAVE_PATH)
 
 
@@ -234,3 +241,5 @@ func load_data() -> void:
 	btn_scale = c.get_value("controls", "scale", btn_scale)
 	btn_opacity = c.get_value("controls", "opacity", btn_opacity)
 	btn_offsets = c.get_value("controls", "offsets", btn_offsets)
+	stick_sens = c.get_value("controls", "stick_sens", stick_sens)
+	btn_hidden = c.get_value("controls", "hidden", btn_hidden)

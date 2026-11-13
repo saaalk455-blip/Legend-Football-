@@ -67,11 +67,12 @@ func _title(text: String, size: int = 72) -> Label:
 	return l
 
 
-func _button(text: String, cb: Callable) -> Button:
+func _button(text: String, cb: Callable, height: float = 84.0, font_size: int = 36) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(0, 84)
-	b.add_theme_font_size_override("font_size", 36)
+	b.custom_minimum_size = Vector2(0, height)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_font_size_override("font_size", font_size)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("1d4ed8")
 	sb.border_color = Color("ffd60a")
@@ -174,20 +175,50 @@ func _pick_team(i: int) -> void:
 
 
 func _show_settings() -> void:
-	var box := _center_box(640)
-	box.add_child(_title(Global.t("SETTINGS"), 48))
-	box.add_child(_button("%s: %s" % [Global.t("LANGUAGE"), "العربية" if Global.language == "ar" else "English"], _cycle_lang))
+	var box := _center_box(1120)
+	box.add_theme_constant_override("separation", 12)
+	box.add_child(_title(Global.t("SETTINGS"), 44))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 10)
+	box.add_child(grid)
 	var diffs := ["Easy", "Normal", "Hard"]
-	box.add_child(_button("%s: %s" % [Global.t("DIFFICULTY"), Global.t(diffs[Global.difficulty])], _cycle_diff))
 	var quals := ["Low", "Medium", "High"]
-	box.add_child(_button("%s: %s" % [Global.t("QUALITY"), Global.t(quals[Global.quality])], _cycle_quality))
-	box.add_child(_button("%s: %d %s" % [Global.t("MATCH LENGTH"), Global.match_minutes, Global.t("min")], _cycle_minutes))
-	box.add_child(_button("%s: %s" % [Global.t("SOUND"), Global.t("ON" if Global.sound_on else "OFF")], _toggle_sound))
 	var sizes := ["S", "M", "L"]
-	box.add_child(_button("%s: %s" % [Global.t("BUTTON SIZE"), sizes[_size_idx()]], _cycle_btn_size))
-	box.add_child(_button("%s: %d%%" % [Global.t("BUTTON OPACITY"), int(round(Global.btn_opacity * 100.0))], _cycle_btn_opacity))
-	box.add_child(_button(Global.t("EDIT LAYOUT"), _edit_layout))
-	box.add_child(_button(Global.t("BACK"), _show_main))
+	var sens_names := ["Low", "Normal", "High"]
+	var on_off := func(v: bool) -> String: return Global.t("ON" if v else "OFF")
+	grid.add_child(_button("%s: %s" % [Global.t("LANGUAGE"), "العربية" if Global.language == "ar" else "English"], _cycle_lang, 68, 28))
+	grid.add_child(_button("%s: %s" % [Global.t("DIFFICULTY"), Global.t(diffs[Global.difficulty])], _cycle_diff, 68, 28))
+	grid.add_child(_button("%s: %s" % [Global.t("QUALITY"), Global.t(quals[Global.quality])], _cycle_quality, 68, 28))
+	grid.add_child(_button("%s: %d %s" % [Global.t("MATCH LENGTH"), Global.match_minutes, Global.t("min")], _cycle_minutes, 68, 28))
+	grid.add_child(_button("%s: %s" % [Global.t("SOUND"), Global.t("ON" if Global.sound_on else "OFF")], _toggle_sound, 68, 28))
+	grid.add_child(_button("%s: %s" % [Global.t("BUTTON SIZE"), sizes[_size_idx()]], _cycle_btn_size, 68, 28))
+	grid.add_child(_button("%s: %d%%" % [Global.t("BUTTON OPACITY"), int(round(Global.btn_opacity * 100.0))], _cycle_btn_opacity, 68, 28))
+	grid.add_child(_button("%s: %s" % [Global.t("STICK SENSITIVITY"), Global.t(sens_names[_sens_idx()])], _cycle_sens, 68, 28))
+	grid.add_child(_button("%s: %s" % [Global.t("SWITCH BUTTON"), on_off.call(not bool(Global.btn_hidden.get("SWITCH", false)))], func(): _toggle_hidden("SWITCH"), 68, 28))
+	grid.add_child(_button("%s: %s" % [Global.t("LONG BUTTON"), on_off.call(not bool(Global.btn_hidden.get("LONG", false)))], func(): _toggle_hidden("LONG"), 68, 28))
+	grid.add_child(_button(Global.t("EDIT LAYOUT"), _edit_layout, 68, 28))
+	grid.add_child(_button(Global.t("BACK"), _show_main, 68, 28))
+
+
+func _sens_idx() -> int:
+	if Global.stick_sens < 0.9:
+		return 0
+	return 1 if Global.stick_sens < 1.1 else 2
+
+
+func _cycle_sens() -> void:
+	var vals := [0.8, 1.0, 1.25]
+	Global.stick_sens = vals[(_sens_idx() + 1) % 3]
+	Global.save_data()
+	_show_settings()
+
+
+func _toggle_hidden(action: String) -> void:
+	Global.btn_hidden[action] = not bool(Global.btn_hidden.get(action, false))
+	Global.save_data()
+	_show_settings()
 
 
 func _size_idx() -> int:

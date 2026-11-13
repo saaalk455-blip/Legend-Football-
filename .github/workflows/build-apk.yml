@@ -52,10 +52,14 @@ jobs:
           for MODE in autoplay botplay; do
             echo "=== $MODE ==="
             godot --headless --path . --fixed-fps 60 --quit-after 40000 res://scenes/game.tscn -- $MODE 2>&1 | tee smoke-$MODE.log
-            grep -E "SMOKE_(SELFTEST|HALFTIME|DONE|STATS|ADV)" smoke-$MODE.log || true
+            grep -E "SMOKE_(SELFTEST|HALFTIME|DONE|STATS|ADV|TOUCH)|TOUCH_FAIL" smoke-$MODE.log || true
             if grep -E "SCRIPT ERROR|Parse Error|Failed to load script|Invalid (call|access|get|set)" smoke-$MODE.log; then
               echo "Smoke test ($MODE) found script errors"; exit 1
             fi
+            if grep -q "TOUCH_FAIL" smoke-$MODE.log; then
+              echo "Touch control self-test failed ($MODE)"; exit 1
+            fi
+            grep -q "SMOKE_TOUCH tests=" smoke-$MODE.log || { echo "Touch self-test did not run ($MODE)"; exit 1; }
             grep -q "SMOKE_DONE" smoke-$MODE.log || { echo "Match ($MODE) did not reach full time"; exit 1; }
           done
 
