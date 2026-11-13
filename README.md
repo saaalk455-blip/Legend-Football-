@@ -17,4 +17,5 @@ On the phone: open the file, allow "install unknown apps" when asked, install.
 - CI runs two headless test matches (AI vs AI and a bot on the touch controls) before every build
 
 ## Still to do
+- Articulated players: running animation, kick swing, faces, kit trim, numbers on back
 - Final on-device tuning

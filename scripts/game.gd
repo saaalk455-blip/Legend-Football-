@@ -820,6 +820,7 @@ func _release_ball(kicker: Player) -> int:
 	blocked_timer = 0.4
 	last_touch_team = kicker.team_id
 	last_touch_name = kicker.player_name
+	kicker.kick()
 	if prev != M_PLAY:
 		no_offside_kick = prev == M_KICKOFF or prev == M_THROW or prev == M_GOALKICK or prev == M_CORNER
 		mode = M_PLAY
