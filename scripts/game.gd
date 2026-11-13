@@ -16,8 +16,8 @@ const GRAVITY := 22.0
 const BALL_R := 0.35
 const HALF_SECONDS := 2700.0   # 45 game minutes
 
-const CAM_X := 60.0
-const CAM_H := 34.0
+const CAM_X := 66.0
+const CAM_H := 40.0
 
 const M_INTRO := 0
 const M_KICKOFF := 1
@@ -334,7 +334,7 @@ func _build_ball() -> void:
 
 func _build_camera() -> void:
 	cam = Camera3D.new()
-	cam.fov = 34.0
+	cam.fov = 40.0
 	cam.far = 400.0
 	cam.position = Vector3(CAM_X, CAM_H, 0)
 	add_child(cam)
@@ -432,7 +432,7 @@ func _process(delta: float) -> void:
 	# Side-line TV camera following the ball along the pitch.
 	var f := ball.position
 	var look_z := clampf(f.z + ball_vel.z * 0.12, -HALF_L + 8.0, HALF_L - 8.0)
-	cam_z = lerpf(cam_z, look_z, clampf(delta * 4.0, 0.0, 1.0))
+	cam_z = lerpf(cam_z, look_z, clampf(delta * 3.0, 0.0, 1.0))
 	var look_x := f.x * 0.15
 	cam.position = Vector3(CAM_X + look_x, CAM_H, cam_z)
 	cam.look_at(Vector3(6.0 + look_x, 0.0, cam_z), Vector3.UP)

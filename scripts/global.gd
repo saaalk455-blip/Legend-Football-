@@ -70,6 +70,9 @@ var match_minutes := 2     # short default for testing
 var quality := 1           # 0 Low, 1 Medium, 2 High
 var language := "en"       # "en" or "ar"
 var sound_on := true
+var btn_scale := 1.0       # touch button size multiplier
+var btn_opacity := 0.55    # touch button fill alpha
+var btn_offsets := {}      # action -> Vector2 offset from default position
 
 const TR := {
 	"PLAY": {"ar": "العب"},
@@ -82,6 +85,11 @@ const TR := {
 	"QUALITY": {"ar": "الجودة"},
 	"MATCH LENGTH": {"ar": "مدة المباراة"},
 	"SOUND": {"ar": "الصوت"},
+	"BUTTON SIZE": {"ar": "حجم الأزرار"},
+	"BUTTON OPACITY": {"ar": "شفافية الأزرار"},
+	"EDIT LAYOUT": {"ar": "تعديل أماكن الأزرار"},
+	"RESET": {"ar": "إعادة"},
+	"SAVE": {"ar": "حفظ"},
 	"Easy": {"ar": "سهل"},
 	"Normal": {"ar": "عادي"},
 	"Hard": {"ar": "صعب"},
@@ -206,6 +214,9 @@ func save_data() -> void:
 	c.set_value("game", "quality", quality)
 	c.set_value("game", "language", language)
 	c.set_value("game", "sound_on", sound_on)
+	c.set_value("controls", "scale", btn_scale)
+	c.set_value("controls", "opacity", btn_opacity)
+	c.set_value("controls", "offsets", btn_offsets)
 	c.save(SAVE_PATH)
 
 
@@ -220,3 +231,6 @@ func load_data() -> void:
 	quality = c.get_value("game", "quality", quality)
 	language = c.get_value("game", "language", language)
 	sound_on = c.get_value("game", "sound_on", sound_on)
+	btn_scale = c.get_value("controls", "scale", btn_scale)
+	btn_opacity = c.get_value("controls", "opacity", btn_opacity)
+	btn_offsets = c.get_value("controls", "offsets", btn_offsets)

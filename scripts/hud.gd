@@ -63,7 +63,7 @@ func setup(name_a: String, code_a: String, kit_a: Array, name_b: String, code_b:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
-	_build_score(code_a, kit_a, code_b, kit_b)
+	_build_score(name_a, kit_a, name_b, kit_b)
 	_build_clock()
 	_card_l = _build_card(false, 74.0)
 	_card_r = _build_card(true, 74.0)
@@ -133,10 +133,10 @@ func _build_score(code_a: String, kit_a: Array, code_b: String, kit_b: Array) ->
 	h.add_theme_constant_override("separation", 10)
 	p.add_child(h)
 	h.add_child(_swatch(kit_a))
-	h.add_child(_label(code_a, 28, Color("27e0ff")))
+	h.add_child(_label(code_a, 24, Color("27e0ff")))
 	_score_l = _label("0 - 0", 38, Color("ffd60a"), 8)
 	h.add_child(_score_l)
-	h.add_child(_label(code_b, 28, Color("ff7b7b")))
+	h.add_child(_label(code_b, 24, Color("ff7b7b")))
 	h.add_child(_swatch(kit_b))
 
 

@@ -183,7 +183,35 @@ func _show_settings() -> void:
 	box.add_child(_button("%s: %s" % [Global.t("QUALITY"), Global.t(quals[Global.quality])], _cycle_quality))
 	box.add_child(_button("%s: %d %s" % [Global.t("MATCH LENGTH"), Global.match_minutes, Global.t("min")], _cycle_minutes))
 	box.add_child(_button("%s: %s" % [Global.t("SOUND"), Global.t("ON" if Global.sound_on else "OFF")], _toggle_sound))
+	var sizes := ["S", "M", "L"]
+	box.add_child(_button("%s: %s" % [Global.t("BUTTON SIZE"), sizes[_size_idx()]], _cycle_btn_size))
+	box.add_child(_button("%s: %d%%" % [Global.t("BUTTON OPACITY"), int(round(Global.btn_opacity * 100.0))], _cycle_btn_opacity))
+	box.add_child(_button(Global.t("EDIT LAYOUT"), _edit_layout))
 	box.add_child(_button(Global.t("BACK"), _show_main))
+
+
+func _size_idx() -> int:
+	if Global.btn_scale < 0.9:
+		return 0
+	return 1 if Global.btn_scale < 1.1 else 2
+
+
+func _cycle_btn_size() -> void:
+	var vals := [0.8, 1.0, 1.2]
+	Global.btn_scale = vals[(_size_idx() + 1) % 3]
+	Global.save_data()
+	_show_settings()
+
+
+func _cycle_btn_opacity() -> void:
+	var o := Global.btn_opacity + 0.15
+	Global.btn_opacity = 0.25 if o > 0.85 else o
+	Global.save_data()
+	_show_settings()
+
+
+func _edit_layout() -> void:
+	get_tree().change_scene_to_file("res://scenes/layout_editor.tscn")
 
 
 func _cycle_lang() -> void:
