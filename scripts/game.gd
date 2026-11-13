@@ -66,6 +66,7 @@ var _mat_cache := {}
 
 # ball
 var ball_vel := Vector3.ZERO
+var ball_spin := 0.0
 var holder: Player = null
 var hold_time := 0.0
 var blocked_player: Player = null
@@ -823,7 +824,8 @@ func _release_ball(kicker: Player) -> int:
 	return prev
 
 
-func _launch(vel: Vector3, prev: int) -> void:
+func _launch(vel: Vector3, prev: int, curve: float = 0.0) -> void:
+	ball_spin = curve
 	if prev == M_THROW:
 		var h := Vector2(vel.x, vel.z)
 		if h.length() > 15.0:
@@ -902,21 +904,50 @@ func _update_ball(delta: float) -> void:
 	if holder != null and (not is_instance_valid(holder) or holder.is_queued_for_deletion()):
 		holder = null
 	if holder != null:
-		ball.position = holder.position + _forward(holder) * 0.9 + Vector3(0, BALL_R, 0)
-		ball_vel = Vector3.ZERO
 		hold_time += delta
-		if mode == M_PLAY:
-			if (holder != controlled or autoplay) and hold_time > 8.0:
-				_force_clear(holder)
-			else:
-				_check_ball_bounds(false)
+		if mode != M_PLAY:
+			# Set pieces: the ball rests at the taker's feet.
+			ball.position = holder.position + _forward(holder) * 0.9 + Vector3(0, BALL_R, 0)
+			ball_vel = Vector3.ZERO
+			return
+		_dribble(delta)
+		if holder != null and (holder != controlled or autoplay) and hold_time > 8.0:
+			_force_clear(holder)
+		_check_ball_bounds(true)
 		return
 	_ball_physics(delta)
 	_try_pickup()
 	_check_ball_bounds(true)
 
 
+func _dribble(delta: float) -> void:
+	## The ball has its own velocity: a spring pulls it toward a point just ahead
+	## of the carrier, so it lags, overshoots a little and can be lost.
+	var h := holder
+	var hv := Vector3(h.vel.x, 0.0, h.vel.z)
+	var sp := hv.length()
+	var lead_dir := hv / sp if sp > 0.8 else _forward(h)
+	var lead := 0.85 + minf(sp, 9.0) * 0.07
+	var target := h.position + lead_dir * lead
+	ball_vel.x += ((target.x - ball.position.x) * 55.0 - (ball_vel.x - hv.x) * 9.0) * delta
+	ball_vel.z += ((target.z - ball.position.z) * 55.0 - (ball_vel.z - hv.z) * 9.0) * delta
+	ball_vel.y = 0.0
+	ball.position.x += ball_vel.x * delta
+	ball.position.z += ball_vel.z * delta
+	ball.position.y = BALL_R
+	if Vector2(ball.position.x - h.position.x, ball.position.z - h.position.z).length() > 2.4:
+		holder = null   # lost control of the ball
+
+
 func _ball_physics(delta: float) -> void:
+	var flat_speed := Vector2(ball_vel.x, ball_vel.z).length()
+	if absf(ball_spin) > 0.01 and flat_speed > 3.0 and ball.position.y > BALL_R + 0.05:
+		var perp := Vector3(-ball_vel.z, 0.0, ball_vel.x).normalized()
+		ball_vel += perp * ball_spin * flat_speed * 0.2 * delta
+	ball_spin *= clampf(1.0 - 0.7 * delta, 0.0, 1.0)
+	var air := clampf(1.0 - 0.12 * delta, 0.0, 1.0)
+	ball_vel.x *= air
+	ball_vel.z *= air
 	ball_vel.y -= GRAVITY * delta
 	ball.position += ball_vel * delta
 	if ball.position.y <= BALL_R:
@@ -943,7 +974,7 @@ func _try_pickup() -> void:
 		if p == blocked_player and blocked_timer > 0.0:
 			continue
 		var is_gk := p.role == "GK"
-		if speed > (40.0 if is_gk else 16.0):
+		if speed > (40.0 if is_gk else 11.0 + 0.08 * float(maxi(p.dribble_stat, p.defense_stat))):
 			continue
 		var reach := 1.25
 		if is_gk:
@@ -1230,7 +1261,7 @@ func _kick_pass(lofted: bool) -> void:
 			dist_t = to_t.length()
 	var prev := _release_ball(me)
 	if lofted:
-		_launch(flat_dir * clampf(dist_t / 0.8, 10.0, 32.0) + Vector3(0, 9.0, 0), prev)
+		_launch(flat_dir * clampf(dist_t / 0.8, 10.0, 32.0) + Vector3(0, 9.0, 0), prev, randf_range(-0.25, 0.25))
 	else:
 		var spd := clampf(dist_t * 1.5 + 7.0, 10.0, 26.0) * (0.85 + float(me.pass_stat) / 500.0)
 		_launch(flat_dir * spd, prev)
@@ -1252,7 +1283,7 @@ func _kick_shoot() -> void:
 	dir = dir.normalized()
 	stats["shots"][me.team_id] += 1
 	var prev := _release_ball(me)
-	_launch(dir * (24.0 + float(me.shoot_stat) * 0.12) + Vector3(0, 1.5 + randf() * 2.0, 0), prev)
+	_launch(dir * (24.0 + float(me.shoot_stat) * 0.12) + Vector3(0, 1.5 + randf() * 2.0, 0), prev, randf_range(-0.6, 0.6))
 	offside_list.clear()
 
 
@@ -1337,7 +1368,7 @@ func _ai_target(p: Player, chaser: Player, has_ball: bool) -> Vector3:
 	if p == chaser and mode == M_PLAY:
 		if holder != null:
 			return holder.position
-		return ball.position + Vector3(ball_vel.x, 0.0, ball_vel.z) * 0.25
+		return _intercept_point(p)
 	var atk := _atk_sign(p.team_id)
 	var shift := clampf(ball.position.z, -HALF_L, HALF_L) * 0.45
 	var push := 0.0
@@ -1359,6 +1390,19 @@ func _ai_target(p: Player, chaser: Player, has_ball: bool) -> Vector3:
 		if t.z * atk > lim:
 			t.z = lim * atk
 	return t
+
+
+func _intercept_point(p: Player) -> Vector3:
+	## Where a rolling ball can be met: the closest point on its remaining path.
+	var v := Vector3(ball_vel.x, 0.0, ball_vel.z)
+	var speed := v.length()
+	if speed < 2.0:
+		return ball.position
+	var dir := v / speed
+	var rel := p.position - ball.position
+	rel.y = 0.0
+	var along := clampf(rel.dot(dir), 0.0, speed / 1.4 * 0.9)
+	return ball.position + dir * along
 
 
 func _move_toward(p: Player, target: Vector3, mult: float, delta: float) -> void:
@@ -1444,7 +1488,7 @@ func _ai_pass(p: Player, lofted: bool) -> bool:
 	flat = flat.normalized().rotated(Vector3.UP, randf_range(-err, err))
 	var prev := _release_ball(p)
 	if lofted or d2 > 30.0:
-		_launch(flat * clampf(d2 / 0.8, 10.0, 32.0) + Vector3(0, 9.0, 0), prev)
+		_launch(flat * clampf(d2 / 0.8, 10.0, 32.0) + Vector3(0, 9.0, 0), prev, randf_range(-0.25, 0.25))
 	else:
 		_launch(flat * clampf(d2 * 1.5 + 7.0, 10.0, 26.0) * (0.85 + float(p.pass_stat) / 500.0), prev)
 	_register_pass(p)
@@ -1458,7 +1502,7 @@ func _ai_cross(p: Player) -> void:
 	flat.y = 0.0
 	var d := flat.length()
 	var prev := _release_ball(p)
-	_launch(flat.normalized() * clampf(d / 0.85, 12.0, 30.0) + Vector3(0, 9.0, 0), prev)
+	_launch(flat.normalized() * clampf(d / 0.85, 12.0, 30.0) + Vector3(0, 9.0, 0), prev, randf_range(-0.4, 0.4))
 	_register_pass(p)
 
 
@@ -1470,7 +1514,7 @@ func _ai_shoot(p: Player) -> void:
 	var dir := to.normalized().rotated(Vector3.UP, randf_range(-err, err) * (1.0 + to.length() / 15.0))
 	stats["shots"][p.team_id] += 1
 	var prev := _release_ball(p)
-	_launch(dir * (22.0 + float(p.shoot_stat) * 0.12) + Vector3(0, 1.5 + randf() * 1.5, 0), prev)
+	_launch(dir * (22.0 + float(p.shoot_stat) * 0.12) + Vector3(0, 1.5 + randf() * 1.5, 0), prev, randf_range(-0.6, 0.6))
 	offside_list.clear()
 
 
