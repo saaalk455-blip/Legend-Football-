@@ -143,6 +143,12 @@ func get_roster(idx: int) -> Array:
 			if not used.has(nm):
 				break
 		used[nm] = true
+		var look := {"skin": rng.randi_range(0, 3), "hair": "short", "hcol": "black"}
+		if Rosters.DATA.has(tm["name"]):
+			var line: String = Rosters.DATA[tm["name"]][i]
+			var parts := line.split("|")
+			nm = parts[0] + "x"   # the trailing x keeps every name fictional
+			look = {"skin": int(parts[1]), "hair": parts[2], "hcol": parts[3]}
 		var role: String = ROLES[i]
 		var spd: int = tm["spd"] + rng.randi_range(-8, 8)
 		var shoot: int = tm["atk"] + rng.randi_range(-8, 8)
@@ -163,6 +169,7 @@ func get_roster(idx: int) -> Array:
 			"speed": clampi(spd, 40, 99),
 			"shoot": clampi(shoot, 25, 99),
 			"pass": clampi(pas, 30, 99),
+			"skin": look["skin"], "hair": look["hair"], "hcol": look["hcol"],
 		})
 	_rosters[idx] = out
 	return out

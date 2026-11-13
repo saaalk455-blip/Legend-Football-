@@ -289,8 +289,8 @@ func _build_teams() -> void:
 				shorts = Color("222222")
 			var p := Player.new()
 			add_child(p)
-			p.setup(team_id, f[0], Vector3(x, 0, z), shirt, shorts, i + 1)
 			var r: Dictionary = roster[i]
+			p.setup(team_id, f[0], Vector3(x, 0, z), shirt, shorts, i + 1, r)
 			p.player_name = r["name"]
 			p.speed_stat = r["speed"]
 			p.shoot_stat = r["shoot"]
