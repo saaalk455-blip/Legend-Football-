@@ -45,15 +45,17 @@ jobs:
       - name: Import project
         run: godot --headless --verbose --import || true
 
-      - name: Smoke test (headless, AI plays a match)
+      - name: Smoke test (headless matches)
         run: |
-          godot --headless --path . --fixed-fps 60 --quit-after 40000 res://scenes/game.tscn -- autoplay 2>&1 | tee smoke.log
-          grep -E "SMOKE_STATUS" smoke.log | tail -5 || true
-          if grep -E "SCRIPT ERROR|Parse Error|Failed to load script|Invalid (call|access|get|set)" smoke.log; then
-            echo "Smoke test found script errors"; exit 1
-          fi
-          grep -E "SMOKE_(HALFTIME|DONE|STATS)" smoke.log || true
-          grep -q "SMOKE_DONE" smoke.log || { echo "Match did not reach full time"; exit 1; }
+          for MODE in autoplay botplay; do
+            echo "=== $MODE ==="
+            godot --headless --path . --fixed-fps 60 --quit-after 40000 res://scenes/game.tscn -- $MODE 2>&1 | tee smoke-$MODE.log
+            grep -E "SMOKE_(SELFTEST|HALFTIME|DONE|STATS|ADV)" smoke-$MODE.log || true
+            if grep -E "SCRIPT ERROR|Parse Error|Failed to load script|Invalid (call|access|get|set)" smoke-$MODE.log; then
+              echo "Smoke test ($MODE) found script errors"; exit 1
+            fi
+            grep -q "SMOKE_DONE" smoke-$MODE.log || { echo "Match ($MODE) did not reach full time"; exit 1; }
+          done
 
       - name: Export debug APK
         run: |

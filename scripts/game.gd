@@ -52,6 +52,10 @@ var controlled: Player
 var indicator: Node3D
 var number_label: Label3D
 var autoplay := false      # CI smoke test: AI plays both sides
+var botplay := false       # CI smoke test: a bot presses the touch controls
+var smoke := false
+var _bot_t := 0.0
+var _selftests := 0
 var _auto_t := 0.0
 var _loose_t := 0.0
 var _adv := [-999.0, -999.0]
@@ -101,7 +105,9 @@ var stats := {
 
 func _ready() -> void:
 	autoplay = "autoplay" in OS.get_cmdline_user_args()
-	if autoplay:
+	botplay = "botplay" in OS.get_cmdline_user_args()
+	smoke = autoplay or botplay
+	if smoke:
 		Global.match_minutes = 4
 	Global.apply_quality()
 	team_a = Global.team_index
@@ -119,6 +125,8 @@ func _ready() -> void:
 	_build_hud()
 	if autoplay:
 		controlled = null
+		_begin_kickoff(0)
+	elif botplay:
 		_begin_kickoff(0)
 	else:
 		_place_formation()
@@ -390,16 +398,16 @@ func _process(delta: float) -> void:
 	if cam == null or ball == null or hud == null:
 		return
 	_t += delta
-	if autoplay:
+	if smoke:
 		_auto_t += delta
 		if _auto_t >= 30.0:
 			_auto_t = 0.0
 			print("SMOKE_STATUS t=%.0f mode=%d clock=%s score=%d-%d holder=%s ball=%s" % [_t, mode, _clock_text(), score[0], score[1], holder.player_name if holder != null and is_instance_valid(holder) else "none", ball.position])
-	if autoplay and holder != null and is_instance_valid(holder) and mode == M_PLAY:
+	if smoke and holder != null and is_instance_valid(holder) and mode == M_PLAY:
 		var tm: int = holder.team_id
 		_adv[tm] = maxf(_adv[tm], ball.position.z * _atk_sign(tm))
 		_carry_frames[tm] += 1
-	if autoplay:
+	if smoke:
 		if mode == M_PLAY and holder == null:
 			_loose_t += delta
 			if _loose_t > 8.0:
@@ -482,6 +490,8 @@ func _physics_process(delta: float) -> void:
 	if ball == null or controls == null or hud == null:
 		return
 	_ensure_controlled()
+	if botplay and (mode == M_PLAY or _is_restart_mode()):
+		_bot_input(delta)
 	match mode:
 		M_INTRO, M_FULLTIME:
 			pass
@@ -502,6 +512,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _play_tick(delta: float) -> void:
+	if smoke:
+		_selftest()
 	_update_clock(delta)
 	if mode == M_HALFTIME or mode == M_FULLTIME:
 		return
@@ -550,7 +562,7 @@ func _begin_halftime() -> void:
 	mode_timer = 3.5
 	holder = null
 	hud.message("HALF TIME", 3.0, true, "%d - %d" % [score[0], score[1]])
-	if autoplay:
+	if smoke:
 		print("SMOKE_HALFTIME score=%d-%d" % [score[0], score[1]])
 
 
@@ -572,7 +584,7 @@ func _begin_fulltime() -> void:
 	var nb: String = Global.TEAMS[team_b]["name"]
 	hud.message("FULL TIME", 3.0, true)
 	hud.show_fulltime(na, nb, score[0], score[1], _stats_text())
-	if autoplay:
+	if smoke:
 		print("SMOKE_DONE score=%d-%d" % [score[0], score[1]])
 		print("SMOKE_STATS " + str(stats))
 		print("SMOKE_ADV max_advance=%s carry_frames=%s" % [_adv, _carry_frames])
@@ -1449,3 +1461,64 @@ func _ai_shoot(p: Player) -> void:
 	var prev := _release_ball(p)
 	_launch(dir * (22.0 + float(p.shoot_stat) * 0.12) + Vector3(0, 1.5 + randf() * 1.5, 0), prev)
 	offside_list.clear()
+
+
+# ================================================================ CI self-tests
+
+func _bot_input(delta: float) -> void:
+	## Simulates a person on the touch controls (CI only).
+	_bot_t -= delta
+	if _bot_t > 0.0:
+		return
+	_bot_t = randf_range(0.25, 0.8)
+	var tgt := Vector3(randf_range(-20.0, 20.0), 0.0, _atk_sign(0) * HALF_L)
+	var from := ball.position
+	if controlled != null and is_instance_valid(controlled):
+		from = controlled.position
+	var dir := (tgt - from)
+	dir.y = 0.0
+	dir = dir.normalized().rotated(Vector3.UP, randf_range(-0.8, 0.8))
+	controls.move = Vector2(-dir.z, dir.x)
+	controls.held["RUN"] = randf() < 0.5
+	var r := randf()
+	if r < 0.25:
+		_on_button_down("PASS")
+	elif r < 0.35:
+		_on_button_down("LONG")
+	elif r < 0.45:
+		_on_button_down("SHOOT")
+	elif r < 0.55:
+		_on_button_down("SWITCH")
+
+
+func _selftest() -> void:
+	## Forces rare situations once so CI proves those code paths run.
+	if mode != M_PLAY:
+		return
+	if _selftests == 0 and _t > 10.0:
+		_selftests = 1
+		var off: Player = null
+		var vic: Player = null
+		for q in players:
+			if q.team_id == 1 and q.role == "DEF" and off == null:
+				off = q
+			if q.team_id == 0 and q.role == "FWD" and vic == null:
+				vic = q
+		var es := signf(_own_goal_z(1))
+		vic.position = Vector3(0.0, 0.0, es * (HALF_L - 8.0))
+		_call_foul(off, vic)
+		print("SMOKE_SELFTEST foul_in_box mode=%d (penalty=%d)" % [mode, M_PENALTY])
+	elif _selftests == 1 and _t > 40.0:
+		_selftests = 2
+		for q in players:
+			if q.team_id == 0 and q.role == "FWD":
+				_call_offside(q)
+				break
+		print("SMOKE_SELFTEST offside mode=%d (freekick=%d)" % [mode, M_FREEKICK])
+	elif _selftests == 2 and _t > 70.0:
+		_selftests = 3
+		for q in players:
+			if q.team_id == 1 and q.role == "MID":
+				_send_off(q)
+				break
+		print("SMOKE_SELFTEST send_off players=%d (expect 21)" % players.size())
