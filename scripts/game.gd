@@ -724,6 +724,8 @@ func _start_restart(kind: int, team: int, pos: Vector3, taker: Player) -> void:
 			controlled = taker
 		else:
 			controlled = _nearest_player(0)
+	if kind == M_FREEKICK or kind == M_PENALTY or kind == M_KICKOFF:
+		sfx.play("whistle", -6.0)
 	match kind:
 		M_THROW:
 			hud.message("THROW-IN", 1.5)

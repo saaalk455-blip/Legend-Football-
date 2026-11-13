@@ -16,4 +16,4 @@ On the phone: open the file, allow "install unknown apps" when asked, install.
 - CI runs two headless test matches (AI vs AI and a bot on the touch controls) before every build
 
 ## Still to do
-- Phase 9: graphics polish; final on-device tuning
+- Graphics polish; final on-device tuning
