@@ -1,6 +1,13 @@
 class_name Player
 extends Node3D
 ## Low-poly retro player built from primitives (no external assets).
+## Skin tone and hairstyle (bald, short, long, afro, curly) come from the roster.
+
+const SKIN := [Color("f0c8a0"), Color("d29a6a"), Color("a56a3f"), Color("5a3820")]
+const HAIR := {
+	"black": Color("141414"), "brown": Color("4a2c15"), "blond": Color("d9b85c"),
+	"red": Color("b5441f"), "grey": Color("aaaaaa"),
+}
 
 var team_id := 0
 var role := "MID"            # GK, DEF, MID, FWD
@@ -15,49 +22,69 @@ var stamina := 1.0
 var yellow := 0
 
 
-func setup(p_team: int, p_role: String, p_home: Vector3, shirt: Color, shorts: Color, number: int) -> void:
+func _part(mesh: Mesh, color: Color, pos: Vector3, scl: Vector3 = Vector3.ONE) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	mi.material_override = m
+	mi.position = pos
+	mi.scale = scl
+	add_child(mi)
+	return mi
+
+
+func _box(size: Vector3) -> BoxMesh:
+	var b := BoxMesh.new()
+	b.size = size
+	return b
+
+
+func _ball(radius: float) -> SphereMesh:
+	var s := SphereMesh.new()
+	s.radius = radius
+	s.height = radius * 2.0
+	s.radial_segments = 8
+	s.rings = 4
+	return s
+
+
+func setup(p_team: int, p_role: String, p_home: Vector3, shirt: Color, shorts: Color, number: int, look: Dictionary = {}) -> void:
 	team_id = p_team
 	role = p_role
 	home_pos = p_home
 	shirt_number = number
 	position = p_home
 
-	var shirt_mat := StandardMaterial3D.new()
-	shirt_mat.albedo_color = shirt
-	var shorts_mat := StandardMaterial3D.new()
-	shorts_mat.albedo_color = shorts
-	var skin_mat := StandardMaterial3D.new()
-	skin_mat.albedo_color = Color("d9a577")
+	var skin: Color = SKIN[clampi(int(look.get("skin", 1)), 0, 3)]
+	var hair_style: String = look.get("hair", "short")
+	var hair_col: Color = HAIR.get(look.get("hcol", "black"), HAIR["black"])
 
-	# Legs / shorts
-	var legs := MeshInstance3D.new()
-	var lm := BoxMesh.new()
-	lm.size = Vector3(0.55, 0.8, 0.35)
-	legs.mesh = lm
-	legs.material_override = shorts_mat
-	legs.position = Vector3(0, 0.4, 0)
-	add_child(legs)
-
-	# Torso / shirt
-	var torso := MeshInstance3D.new()
-	var tm := BoxMesh.new()
-	tm.size = Vector3(0.75, 0.8, 0.4)
-	torso.mesh = tm
-	torso.material_override = shirt_mat
-	torso.position = Vector3(0, 1.2, 0)
-	add_child(torso)
-
+	# Socks (kit colour), bare knees, shorts
+	_part(_box(Vector3(0.24, 0.4, 0.26)), shirt, Vector3(-0.16, 0.2, 0))
+	_part(_box(Vector3(0.24, 0.4, 0.26)), shirt, Vector3(0.16, 0.2, 0))
+	_part(_box(Vector3(0.22, 0.12, 0.24)), skin, Vector3(-0.16, 0.46, 0))
+	_part(_box(Vector3(0.22, 0.12, 0.24)), skin, Vector3(0.16, 0.46, 0))
+	_part(_box(Vector3(0.62, 0.42, 0.4)), shorts, Vector3(0, 0.74, 0))
+	# Torso / shirt and arms
+	_part(_box(Vector3(0.74, 0.66, 0.4)), shirt, Vector3(0, 1.28, 0))
+	_part(_box(Vector3(0.17, 0.62, 0.2)), skin, Vector3(-0.47, 1.28, 0))
+	_part(_box(Vector3(0.17, 0.62, 0.2)), skin, Vector3(0.47, 1.28, 0))
 	# Head
-	var head := MeshInstance3D.new()
-	var hm := SphereMesh.new()
-	hm.radius = 0.22
-	hm.height = 0.44
-	hm.radial_segments = 8
-	hm.rings = 4
-	head.mesh = hm
-	head.material_override = skin_mat
-	head.position = Vector3(0, 1.85, 0)
-	add_child(head)
+	_part(_ball(0.23), skin, Vector3(0, 1.82, 0))
+
+	match hair_style:
+		"short":
+			_part(_ball(0.25), hair_col, Vector3(0, 1.9, -0.01), Vector3(1.0, 0.62, 1.0))
+		"long":
+			_part(_ball(0.25), hair_col, Vector3(0, 1.9, -0.01), Vector3(1.0, 0.62, 1.0))
+			_part(_box(Vector3(0.42, 0.5, 0.14)), hair_col, Vector3(0, 1.7, -0.19))
+		"afro":
+			_part(_ball(0.34), hair_col, Vector3(0, 1.92, -0.02))
+		"curly":
+			_part(_ball(0.28), hair_col, Vector3(0, 1.91, -0.02), Vector3(1.0, 0.8, 1.0))
+		_:
+			pass   # bald
 
 	# Simple blob shadow
 	var shadow := MeshInstance3D.new()
