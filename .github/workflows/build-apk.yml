@@ -10,6 +10,8 @@ env:
 jobs:
   export-android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     container:
       image: barichello/godot-ci:4.3
     steps:
@@ -67,3 +69,12 @@ jobs:
         with:
           name: LegendFootball-debug-apk
           path: build/LegendFootball-debug.apk
+
+      - name: Publish APK to the latest-debug release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-debug
+          name: Legend Football - latest debug APK
+          prerelease: true
+          body: "Debug APK built automatically from the newest commit. Download LegendFootball-debug.apk and install it."
+          files: build/LegendFootball-debug.apk

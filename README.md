@@ -1,15 +1,17 @@
 # Legend Football
 
-Original retro-style 3D football game for Android, built with Godot 4.3. All teams and names are fictional; no third-party assets.
+Original retro-style 3D football game for Android, built with Godot 4.3. No third-party assets. Player names are the real surnames with an extra "x" appended; clubs/logos are not used.
 
-## Status
-- PHASE 1: project, main menu, settings + save, CI APK build (built OK).
-- PHASE 2: pitch, goals, TV camera, 22 players, ball (built OK).
-- PHASE 3: virtual stick, action buttons, player movement, switch player (built OK).
-- PHASE 4: ball pickup, pass, long pass, shoot, bounce, goals + score (built OK).
-- PHASE 5: AI for both teams, goalkeepers, Easy/Normal/Hard (built OK).
-- PHASE 7 (early): 24 national teams (up to 2002), generated fictional rosters, team + opponent selection, player card (needs build check).
+## Download the APK
+GitHub -> **Releases** -> `Legend Football - latest debug APK` -> `LegendFootball-debug.apk`.
+On the phone: open the file, allow "install unknown apps" when asked, install.
 
-## Get the APK
-GitHub → Actions → "Build Android APK" → latest run → Artifacts → `LegendFootball-debug-apk`.
-Install on the phone (allow "install unknown apps").
+## What is in the game
+- 24 national teams (2000-2002 era), team + opponent selection, difficulty, quality, match length, Arabic/English
+- Side-line TV camera, touch stick + PASS / LONG / SHOOT / SWITCH / RUN (stamina), tackle
+- Rules: kick-off, throw-in, goal kick, corner, fouls + free kicks, penalties, yellow/red cards, offside, two halves with stoppage time and switching ends
+- HUD: score, clock, player cards, mini-map; intro, pause and full-time screens
+- CI runs two headless test matches (AI vs AI and a bot on the touch controls) before every build
+
+## Still to do
+- Phase 8: sounds; Phase 9: graphics polish; final on-device tuning
