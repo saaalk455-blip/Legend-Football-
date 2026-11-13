@@ -1376,13 +1376,15 @@ func _ai_with_ball(p: Player, react: float, mult: float, delta: float) -> void:
 		return
 	var dist_goal := Vector2(p.position.x, p.position.z - gz).length()
 	if hold_time > react:
-		if dist_goal < 25.0:
+		if dist_goal < 27.0:
 			_ai_shoot(p)
 			return
-		if _nearest_enemy_dist(p.position, p.team_id) < 4.0 or hold_time > 3.5:
+		var pressure := _nearest_enemy_dist(p.position, p.team_id)
+		if pressure < 3.5 or hold_time > 5.0:
 			if _ai_pass(p, false):
 				return
-	_move_toward(p, Vector3(p.position.x * 0.8, 0.0, gz), mult * 0.85, delta)
+	# Dribble toward goal, drifting toward the centre of the pitch.
+	_move_toward(p, Vector3(p.position.x * 0.9, 0.0, gz), mult, delta)
 
 
 func _ai_pass(p: Player, lofted: bool) -> bool:
@@ -1395,7 +1397,7 @@ func _ai_pass(p: Player, lofted: bool) -> bool:
 		var to := t.position - p.position
 		to.y = 0.0
 		var d := to.length()
-		if d < 5.0 or d > 40.0:
+		if d < 5.0 or d > 34.0:
 			continue
 		if _would_be_offside(t):
 			continue
@@ -1411,7 +1413,7 @@ func _ai_pass(p: Player, lofted: bool) -> bool:
 	var d2 := flat.length()
 	flat = flat.normalized().rotated(Vector3.UP, randf_range(-err, err))
 	var prev := _release_ball(p)
-	if lofted or d2 > 28.0:
+	if lofted or d2 > 30.0:
 		_launch(flat * clampf(d2 / 0.8, 10.0, 32.0) + Vector3(0, 9.0, 0), prev)
 	else:
 		_launch(flat * clampf(d2 * 1.5 + 7.0, 10.0, 26.0) * (0.85 + float(p.pass_stat) / 500.0), prev)
