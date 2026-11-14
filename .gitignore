@@ -4,3 +4,5 @@ build/
 *.apk
 *.aab
 .import/
+
+!keystore/debug.keystore
