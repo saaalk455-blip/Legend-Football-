@@ -22,11 +22,13 @@ jobs:
           mkdir -p ~/.local/share/godot/export_templates
           mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
 
-      - name: Create debug keystore
+      - name: Use the fixed debug keystore and a rising version code
         run: |
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
-            -keystore debug.keystore -storepass android \
-            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          # Same signing key on every build, otherwise Android refuses to
+          # install a new APK over the previous one ("App not installed").
+          test -f keystore/debug.keystore
+          sed -i "s/^version\/code=.*/version\/code=${GITHUB_RUN_NUMBER}/" export_presets.cfg
+          grep "version/code" export_presets.cfg
 
       - name: Configure Godot Android settings
         run: |
@@ -37,7 +39,7 @@ jobs:
           {
             echo 'export/android/android_sdk_path = "'"$SDK_PATH"'"'
             echo 'export/android/java_sdk_path = "'"$JAVA_PATH"'"'
-            echo 'export/android/debug_keystore = "'"$PWD"'/debug.keystore"'
+            echo 'export/android/debug_keystore = "'"$PWD"'/keystore/debug.keystore"'
             echo 'export/android/debug_keystore_user = "androiddebugkey"'
             echo 'export/android/debug_keystore_pass = "android"'
             echo 'export/android/force_system_user = false'
